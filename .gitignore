@@ -1,2 +1,4 @@
 .vscode/settings.json
 **/.DS_Store
+src/utils/setitimer-helper.o
+src/utils/squish-unix.o
