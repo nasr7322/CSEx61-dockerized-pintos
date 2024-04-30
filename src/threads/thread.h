@@ -149,4 +149,7 @@ void thread_calculate_recent_cpu_all (void);
 void thread_calculate_priority (struct thread *t, void *aux);
 void thread_calculate_priority_all (void);
 /* ==================== MLFQS END ==================== */
+
+/* ==================== priority scheduler ==================== */
+
 #endif /* threads/thread.h */

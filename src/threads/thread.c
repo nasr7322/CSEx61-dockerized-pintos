@@ -71,6 +71,9 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+/*=================== priority scheduler  ====================*/
+static bool thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+/*=================== priority scheduler end ====================*/
 
 /* ==================== MLFQS ==================== */
 static int load_avg;
@@ -206,11 +209,19 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* Add to run queue. */
-  thread_unblock (t);
+
+  // thread_unblock (t);
+  
   /* ==================== MLFQS ==================== */
   if (thread_mlfqs) 
     thread_calculate_priority (t, NULL);
   /* ==================== MLFQS END ==================== */
+  
+  /*=================== priority scheduler  ====================*/
+  thread_unblock (t);//thread_unblock() will call thread_yield() to schedule the thread
+  thread_yield ();
+  /*=================== priority scheduler end ====================*/
+ 
   return tid;
 }
 
@@ -247,9 +258,19 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  
+  /*=================== priority scheduler  ====================*/
+  list_insert_ordered (&ready_list, &t->elem, thread_priority_comparator, NULL);
+  
+  /*=================== priority scheduler end ====================*/
+
   t->status = THREAD_READY;
+
   intr_set_level (old_level);
+  /* ==================== priority scheduler  ==================== */
+  // thread_yield ();
+  /*=================== priority scheduler end ====================*/
 }
 
 /* Returns the name of the running thread. */
@@ -318,7 +339,11 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    // list_push_back (&ready_list, &cur->elem);
+    /*=================== priority scheduler  ====================*/
+    list_insert_ordered (&ready_list, &cur->elem, thread_priority_comparator, NULL);
+    /*=================== priority scheduler end ====================*/
+
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -534,6 +559,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  
   intr_set_level (old_level);
 }
 
@@ -646,6 +672,18 @@ allocate_tid (void)
 
   return tid;
 }
+/*=================== priority scheduler  ====================*/
+static bool 
+thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  ASSERT (a_ != NULL);
+  ASSERT (b_ != NULL);
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  return a->priority > b->priority;
+}
+
+/*=================== priority scheduler end ====================*/
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

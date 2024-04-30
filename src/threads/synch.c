@@ -31,6 +31,12 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+/*=================== priority scheduler  ====================*/
+static bool sema_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,void *aux UNUSED);
+static bool lock_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,void *aux UNUSED);
+static bool thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);                                        
+/*=================== priority scheduler end ====================*/
+
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -48,6 +54,9 @@ sema_init (struct semaphore *sema, unsigned value)
 
   sema->value = value;
   list_init (&sema->waiters);
+  /*=================== priority scheduler  ====================*/
+  sema->sema_priority = -1;
+  /*=================== priority scheduler end ====================*/
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -68,7 +77,12 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      // list_push_back (&sema->waiters, &thread_current ()->elem);
+
+      /*=================== priority scheduler  ====================*/
+      list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_priority_comparator, NULL);
+      /*=================== priority scheduler end ====================*/
+
       thread_block ();
     }
   sema->value--;
@@ -116,7 +130,14 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) 
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  
   sema->value++;
+
+  /*=================== priority scheduler  ====================*/
+  // intr_set_level (old_level);
+      thread_yield ();
+  /*=================== priority scheduler end ====================*/
+
   intr_set_level (old_level);
 }
 
@@ -196,6 +217,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  /*=================== priority scheduler  ====================*/
+ 
+  // if(lock->holder != NULL) -> priority donation
+  
+ // put it in intr_disable()
+  
+  // enum intr_level old_level;
+  // old_level = intr_disable ();
+  // intr_set_level (old_level);
+  //#################### // can we add priority donation in sema down? ########################
+  /*=================== priority scheduler end ====================*/
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -295,7 +327,13 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  // list_push_back (&cond->waiters, &waiter.elem);
+  /*=================== priority scheduler  ====================*/
+  //  waiter.semaphore.sema_priority = thread_current ()->priority;
+   waiter.semaphore.sema_priority = lock->holder->priority;
+  list_insert_ordered(&cond->waiters, &waiter.elem, sema_priority_comparator, NULL);
+  /*=================== priority scheduler end ====================*/
+
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -336,3 +374,40 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 }
+/*=================== priority scheduler  ====================*/
+static bool
+sema_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,
+                    void *aux UNUSED)
+{
+  ASSERT (a_ != NULL);
+  ASSERT (b_ != NULL);
+
+  const struct semaphore_elem *a = list_entry (a_, struct semaphore_elem,
+                                               elem);
+  const struct semaphore_elem *b = list_entry (b_, struct semaphore_elem,
+                                               elem);
+
+  return (a->semaphore.sema_priority > b->semaphore.sema_priority);
+}
+// static bool
+// lock_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,
+//                     void *aux UNUSED)
+// {
+//   ASSERT (a_ != NULL);
+//   ASSERT (a_ != NULL);
+//   const struct lock *a = list_entry (a_, struct lock, elem_lock);
+//   const struct lock *b = list_entry (b_, struct lock, elem_lock);
+
+//   return a->priority_lock >= b->priority_lock;
+// }
+static bool 
+thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  ASSERT (a_ != NULL);
+  ASSERT (b_ != NULL);
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  return a->priority > b->priority;
+}
+/*=================== priority scheduler end ====================*/
+
