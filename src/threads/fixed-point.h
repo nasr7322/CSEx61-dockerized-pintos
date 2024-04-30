@@ -51,4 +51,8 @@ fixed_point div(fixed_point x, fixed_point y) {
 fixed_point div_int(fixed_point x, int n) {
     return x / n;
 }
+
+void print_fixed_point(fixed_point x) {
+    printf("%d.%04d", x / F, x % F);
+}
 #endif
