@@ -558,6 +558,15 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+  /*========================================*/
+  if(thread_mlfqs){
+    //advanced scheduler
+  }
+  else{
+    //priorty scheduler
+  }
+  /*=========================================*/
+  
   if (list_empty (&ready_list))
     return idle_thread;
   else
