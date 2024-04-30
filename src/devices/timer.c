@@ -209,7 +209,7 @@ static void timer_interrupt (struct intr_frame *args UNUSED)
     if (timer_ticks() >= st->wakeup_time) {
       e = list_remove(e);
       sema_up(&st->sem);
-      free(st);
+
     } else {
       break;
     }
