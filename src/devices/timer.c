@@ -8,7 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 /* ##> Our implementation */
-#include "threads/fixed-point.h"
+// #include "threads/fixed-point.h"
 #include <string.h>
 
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -195,25 +195,25 @@ timer_interrupt (struct intr_frame *args UNUSED)
    * exactly when the system tick counter reaches a multiple of a second, that
    * is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.
    */
-  // if (thread_mlfqs)
-  //   {
-  //     struct thread *cur;
-  //     cur = thread_current ();
-  //     if (cur->status == THREAD_RUNNING)
-  //       {
-  //         cur->recent_cpu = ADD_INT (cur->recent_cpu, 1);
-  //       }
-  //     if (ticks % TIMER_FREQ == 0)
-  //       {
-  //         calculate_load_avg ();
-  //         /* recent_cpu depends on load_avg */
-  //         calculate_recent_cpu_for_all ();
-  //       }
-  //     if (ticks % 4 == 0)
-  //       {
-  //         calculate_advanced_priority_for_all ();
-  //       }
-  //   }
+  if (thread_mlfqs)
+    {
+      struct thread *cur;
+      cur = thread_current ();
+      if (cur->status == THREAD_RUNNING)
+        {
+          cur->recent_cpu = add_int (cur->recent_cpu, 1);
+        }
+      if (ticks % TIMER_FREQ == 0)
+        {
+          thread_calculate_load_avg ();
+          /* recent_cpu depends on load_avg */
+          thread_calculate_recent_cpu_all ();
+        }
+      if (ticks % 4 == 0)
+        {
+          thread_calculate_priority_all ();
+        }
+    }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
