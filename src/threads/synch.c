@@ -234,7 +234,10 @@ lock_acquire (struct lock *lock)
   old_level = intr_disable ();
   if(lock->holder != NULL){
     thread_current ()->lock_waiting_for = lock;
-    donate_priority(lock, thread_current ()->priority);
+    
+    if(!thread_mlfqs)
+     donate_priority(lock, thread_current ()->priority);
+
     thread_yield();
   }
 
@@ -312,8 +315,10 @@ lock_release (struct lock *lock)
   
   enum intr_level old_level;
   old_level = intr_disable ();
-  update_donated_priority();
-
+    
+    if(!thread_mlfqs)
+     update_donated_priority();
+    
     list_sort(&lock->semaphore.waiters, thread_priority_comparator, NULL);
 
   list_remove(&lock->elem);
