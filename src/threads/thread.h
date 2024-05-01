@@ -93,6 +93,7 @@ struct thread
       int max_donated_priority;            /* priority that the thread has after donation. */
       struct list locks_held;                  /* Locks that the thread is holding. */
       struct lock *lock_waiting_for;          /* Lock that the thread is waiting for. */
+      struct semaphore* sema_waiting_for;      /* Semaphore that the thread is waiting for. */
     /* ==================== priority scheduler END ==================== */
 
    /* ==================== MLFQS ==================== */
