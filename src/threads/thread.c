@@ -490,27 +490,27 @@ void thread_calculate_recent_cpu (struct thread *t, void *aux) {
   t->recent_cpu = add_int (mul (temp, t->recent_cpu), t->nice);
 }
 
-// void thread_calculate_recent_cpu_all (void) {
-//   struct list_elem *e;
-//   e = list_begin (&all_list);
-//   while (e != list_end (&all_list)) {
-//     struct thread *t = list_entry (e, struct thread, allelem);
-//     thread_calculate_recent_cpu (t, NULL);
-//     e = list_next (e);
-//   }
-// }
+void thread_calculate_recent_cpu_all (void) {
+  struct list_elem *e;
+  e = list_begin (&all_list);
+  while (e != list_end (&all_list)) {
+    struct thread *t = list_entry (e, struct thread, allelem);
+    thread_calculate_recent_cpu (t, NULL);
+    e = list_next (e);
+  }
+}
 
-// void thread_calculate_priority (struct thread *t, void *aux) {
-//   if (t == idle_thread) {
-//     return;
-//   }
-//   t->priority = PRI_MAX - fixed_to_int_nearest (div_int (t->recent_cpu, 4)) - t->nice * 2;
-//   if (t->priority < PRI_MIN) {
-//     t->priority = PRI_MIN;
-//   } else if (t->priority > PRI_MAX) {
-//     t->priority = PRI_MAX;
-//   }
-// }
+void thread_calculate_priority (struct thread *t, void *aux) {
+  if (t == idle_thread) {
+    return;
+  }
+  t->priority = PRI_MAX - fixed_to_int_nearest (div_int (t->recent_cpu, 4)) - t->nice * 2;
+  if (t->priority < PRI_MIN) {
+    t->priority = PRI_MIN;
+  } else if (t->priority > PRI_MAX) {
+    t->priority = PRI_MAX;
+  }
+}
 
 void thread_calculate_priority_all (void) {
   struct list_elem *e;
