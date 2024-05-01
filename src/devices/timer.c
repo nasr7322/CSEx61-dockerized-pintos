@@ -8,7 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 /* ##> Our implementation */
-#include "threads/fixed-point.h"
+// #include "threads/fixed-point.h"
 #include <string.h>
 
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -181,39 +181,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-
-  /* ##> Our implementation */
-  /* Each time a timer interrupt occurs, recent_cpu is incremented by 1 for
-   * the running thread only, unless the idle thread is running.
-   *
-   * Assumptions made by some of the tests require that these recalculations of
-   * recent_cpu be made exactly when the system tick counter reaches a multiple
-   * of a second, that is, when timer_ticks () % TIMER_FREQ == 0, and not at
-   * any other time.
-   *
-   * Because of assumptions made by some of the tests, load_avg must be updated
-   * exactly when the system tick counter reaches a multiple of a second, that
-   * is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.
-   */
-  // if (thread_mlfqs)
-  //   {
-  //     struct thread *cur;
-  //     cur = thread_current ();
-  //     if (cur->status == THREAD_RUNNING)
-  //       {
-  //         cur->recent_cpu = ADD_INT (cur->recent_cpu, 1);
-  //       }
-  //     if (ticks % TIMER_FREQ == 0)
-  //       {
-  //         calculate_load_avg ();
-  //         /* recent_cpu depends on load_avg */
-  //         calculate_recent_cpu_for_all ();
-  //       }
-  //     if (ticks % 4 == 0)
-  //       {
-  //         calculate_advanced_priority_for_all ();
-  //       }
-  //   }
+  /*=================== MLFQS ===================*/
+    thread_current()->recent_cpu = add_int(thread_current()->recent_cpu, 1);
+  if (thread_mlfqs){
+    if (ticks % TIMER_FREQ == 0){
+      thread_calculate_load_avg();
+      // thread_foreach(thread_calculate_recent_cpu, NULL);
+      thread_calculate_recent_cpu_all();
+    }
+    if (ticks % 4 == 0){
+      // thread_foreach(thread_calculate_priority, NULL);
+      thread_calculate_priority_all();
+    }
+  }
+  /*=================== MLFQS END ===================*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
