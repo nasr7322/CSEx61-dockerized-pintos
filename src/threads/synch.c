@@ -84,11 +84,14 @@ sema_down (struct semaphore *sema)
 
       /*=================== priority scheduler  ====================*/
         list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_priority_comparator, NULL);
+        // list_sort(&sema->waiters, thread_priority_comparator, NULL);
+
       /*=================== priority scheduler end ====================*/
   
       thread_block ();
-      printf(thread_current()->name);
-      printf("-------------------------------------------------------------\n");
+      // printf(thread_current()->name);
+      // printf("-------------------------------------------------------------\n");
+      
     }
   sema->value--;
   
@@ -334,10 +337,10 @@ lock_release (struct lock *lock)
     
   list_remove(&lock->elem);
 
+    // list_sort(&lock->semaphore.waiters, thread_priority_comparator, NULL);
     if(!thread_mlfqs)
       update_donated_priority();
     
-    // list_sort(&lock->semaphore.waiters, thread_priority_comparator, NULL);
 
   // list_remove(&lock->elem);
   /*=================== priority scheduler end ====================*/
