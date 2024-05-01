@@ -34,7 +34,6 @@
 /*=================== priority scheduler  ====================*/
 void donate_priority(struct lock *lock, int priority);
 static bool sema_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,void *aux UNUSED);
-static bool lock_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,void *aux UNUSED);
 static bool thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);                                        
 /*=================== priority scheduler end ====================*/
 
@@ -70,6 +69,9 @@ sema_init (struct semaphore *sema, unsigned value)
 void
 sema_down (struct semaphore *sema) 
 {
+  // printf(thread_current()->name);
+  // printf(sema->value);
+  // printf("---------------------\n");
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
@@ -85,8 +87,11 @@ sema_down (struct semaphore *sema)
       /*=================== priority scheduler end ====================*/
   
       thread_block ();
+      printf(thread_current()->name);
+      printf("-------------------------------------------------------------\n");
     }
   sema->value--;
+  
   intr_set_level (old_level);
 }
 
@@ -206,10 +211,19 @@ lock_init (struct lock *lock)
 /*=================== priority scheduler  ====================*/
 // we can adjust level by level parameter
 void donate_priority(struct lock *lock, int donated_priority){
-  if(lock == NULL || lock->holder == NULL || lock->holder->priority >= donated_priority){
+  // if(lock == NULL || lock->holder == NULL || lock->holder->priority >= donated_priority){
+  if(lock == NULL || lock->holder == NULL || lock->holder->max_donated_priority > donated_priority){
     return;
   }
-  lock->holder->priority = donated_priority;
+  lock->holder->max_donated_priority = donated_priority;
+
+  if(lock->holder->max_donated_priority > lock->holder->priority)
+    lock->holder->priority = lock->holder->max_donated_priority;
+
+
+  // list_remove(&lock->holder->elem);
+  // list_insert_ordered(&lock->holder->lock_waiting_for->semaphore.waiters, &lock->holder->elem, sema_priority_comparator, NULL);
+  
   donate_priority(lock->holder->lock_waiting_for, donated_priority);
 }
 /*=================== priority scheduler end ====================*/
@@ -236,7 +250,7 @@ lock_acquire (struct lock *lock)
     thread_current ()->lock_waiting_for = lock;
     
     if(!thread_mlfqs)
-     donate_priority(lock, thread_current ()->priority);
+      donate_priority(lock, thread_current ()->priority);
 
     thread_yield();
   }
@@ -279,24 +293,26 @@ lock_try_acquire (struct lock *lock)
 }
 
 void update_donated_priority(){
-  int max_priority = thread_current ()->basic_priority;
-  // printf("max_priority: %d------------------------------------------------------\n", max_priority);
-  // printf("thread_current() -> priority: ----------------------------------------------------%d\n", thread_current ()->priority);
+  // int max_priority = thread_current ()->basic_priority;
+  int mx_donated = -1;
   if(!list_empty(&thread_current ()->locks_held)){
     struct list_elem *e;
     for(e = list_begin(&thread_current ()->locks_held); e != list_end(&thread_current ()->locks_held); e = list_next(e)){
       struct lock *lock = list_entry(e, struct lock, elem);
       if(!list_empty(&lock->semaphore.waiters)){
         struct thread *t = list_entry(list_front(&lock->semaphore.waiters), struct thread, elem);
-        if(t->priority > max_priority){
-          max_priority = t->priority;
+        if(t->priority > mx_donated){
+          mx_donated = t->priority;
         }
       }
     }
   }
-  // printf("max_priority: %d\n", max_priority);
-  thread_current ()->priority = max_priority;
-  // printf("max_priority: %d\n", max_priority);
+  thread_current ()->max_donated_priority = mx_donated;
+  if(thread_current ()->basic_priority > thread_current ()->max_donated_priority){
+    thread_current ()->priority = thread_current ()->basic_priority;
+  }else{
+    thread_current ()->priority = thread_current ()->max_donated_priority;
+  }
 }
   
 
@@ -316,13 +332,14 @@ lock_release (struct lock *lock)
   enum intr_level old_level;
   old_level = intr_disable ();
     
-    if(!thread_mlfqs)
-     update_donated_priority();
-    
-    list_sort(&lock->semaphore.waiters, thread_priority_comparator, NULL);
-
   list_remove(&lock->elem);
 
+    if(!thread_mlfqs)
+      update_donated_priority();
+    
+    // list_sort(&lock->semaphore.waiters, thread_priority_comparator, NULL);
+
+  // list_remove(&lock->elem);
   /*=================== priority scheduler end ====================*/
 
   lock->holder = NULL;
@@ -458,17 +475,6 @@ sema_priority_comparator (const struct list_elem *a_, const struct list_elem *b_
 
   return (a->semaphore.sema_priority > b->semaphore.sema_priority);
 }
-// static bool
-// lock_priority_comparator (const struct list_elem *a_, const struct list_elem *b_,
-//                     void *aux UNUSED)
-// {
-//   ASSERT (a_ != NULL);
-//   ASSERT (a_ != NULL);
-//   const struct lock *a = list_entry (a_, struct lock, elem_lock);
-//   const struct lock *b = list_entry (b_, struct lock, elem_lock);
-
-//   return a->priority_lock >= b->priority_lock;
-// }
 static bool 
 thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {

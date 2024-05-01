@@ -90,6 +90,7 @@ struct thread
     int priority;                       /* Priority. */
     /* ==================== priority scheduler ==================== */
       int basic_priority;              /* basic priority without any donation. */
+      int max_donated_priority;            /* priority that the thread has after donation. */
       struct list locks_held;                  /* Locks that the thread is holding. */
       struct lock *lock_waiting_for;          /* Lock that the thread is waiting for. */
     /* ==================== priority scheduler END ==================== */

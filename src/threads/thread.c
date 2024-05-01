@@ -398,11 +398,19 @@ thread_set_priority (int new_priority)
   /* ==================== priority scheduler  ==================== */
   
   thread_current ()->basic_priority = new_priority;
-  
-  if ( thread_mlfqs || true ||new_priority > thread_current ()->priority)//we will remove true after solving donation logic 
-    thread_current ()->priority = new_priority;
+  if(thread_current ()->basic_priority > thread_current ()->max_donated_priority){
+    thread_current ()->priority = thread_current ()->basic_priority;
+  }else{
+    thread_current ()->priority = thread_current ()->max_donated_priority;
+  }
+
+  // if (thread_mlfqs  || new_priority > thread_current ()->priority) {//we will remove true after solving donation logic 
+  //   thread_current ()->priority = new_priority;
+  // }
   /* ==================== priority scheduler  ==================== */
+  
   // thread_current ()->priority = new_priority;
+  
   /* ==================== priority scheduler  ==================== */
   thread_yield ();
   /*=================== priority scheduler end ====================*/
@@ -591,6 +599,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   /*=================== priority scheduler  ====================*/
   t->basic_priority = priority;
+  t->max_donated_priority = -1;
   list_init (&t->locks_held);
   t->lock_waiting_for = NULL;
   /*=================== priority scheduler end ====================*/
