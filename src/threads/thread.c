@@ -602,6 +602,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->max_donated_priority = -1;
   list_init (&t->locks_held);
   t->lock_waiting_for = NULL;
+  t->sema_waiting_for = NULL;
   /*=================== priority scheduler end ====================*/
   t->magic = THREAD_MAGIC;
   t->nice = 0;

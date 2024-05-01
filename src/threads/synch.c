@@ -86,10 +86,12 @@ sema_down (struct semaphore *sema)
       /*=================== priority scheduler  ====================*/
         list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_priority_comparator, NULL);
       /*=================== priority scheduler end ====================*/
-  
+
+      thread_current ()->sema_waiting_for = sema;
       thread_block ();
       // printf(thread_current()->name);
     }
+  thread_current ()->sema_waiting_for = NULL;
   sema->value--;
   
   intr_set_level (old_level);
@@ -220,19 +222,11 @@ void donate_priority(struct lock *lock, int donated_priority){
   if(lock->holder->max_donated_priority > lock->holder->priority)
     lock->holder->priority = lock->holder->max_donated_priority;
 
-  // printf("donated_priority: %d\n", donated_priority);
-  // printf("lock->holder->priority: %d\n", lock->holder->priority);
-  // printf("holder: %s\n", lock->holder->name);
   if(lock->holder->lock_waiting_for != NULL)
     list_sort(&lock->holder->lock_waiting_for->semaphore.waiters, thread_priority_comparator, NULL);
-  //print list of wiaters with their priority
-  // if (list_empty(&lock->semaphore.waiters)) {
-  //   printf("waiters list is empty\n");
-    // struct list_elem *e;
-    // for(e = list_begin(&lock->semaphore.waiters); e != list_end(&lock->semaphore.waiters); e = list_next(e)){
-    //   struct thread *t = list_entry(e, struct thread, elem);
-      // printf("waiter: %s, priority: %d\n", t->name, t->priority);
-    // }
+
+  if(lock->holder->sema_waiting_for != NULL)
+    list_sort(&lock->holder->sema_waiting_for->waiters, thread_priority_comparator, NULL);
   
   donate_priority(lock->holder->lock_waiting_for, donated_priority);
 }
