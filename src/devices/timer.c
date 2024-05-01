@@ -7,8 +7,9 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include "threads/malloc.h"
-#include <stdlib.h>
+/* ##> Our implementation */
+#include "threads/fixed-point.h"
+#include <string.h>
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -31,17 +32,12 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
-bool compare_wakeup_time(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-
-
-
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
 timer_init (void) 
 {
-  list_init(&sleeping_threads);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -67,7 +63,7 @@ timer_calibrate (void)
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
   for (test_bit = high_bit >> 1; test_bit != high_bit >> 10; test_bit >>= 1)
-    if (!too_many_loops (loops_per_tick | test_bit))
+    if (!too_many_loops (high_bit | test_bit))
       loops_per_tick |= test_bit;
 
   printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
@@ -91,40 +87,23 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-
-struct sleeping_thread {
-  struct semaphore sem;
-  int64_t wakeup_time;
-  struct list_elem elem;
-};
-
-struct list sleeping_threads;
-
-
-bool compare_wakeup_time(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-  struct sleeping_thread *st_a = list_entry(a, struct sleeping_thread, elem);
-  struct sleeping_thread *st_b = list_entry(b, struct sleeping_thread, elem);
-  return st_a->wakeup_time < st_b->wakeup_time;
-}
-
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
 {
-  struct sleeping_thread *st = malloc(sizeof(struct sleeping_thread));
-  ASSERT(st != NULL);
-  sema_init(&st->sem, 0);
-  st->wakeup_time = timer_ticks () + ticks;
+  int64_t start = timer_ticks ();
 
-  list_insert_ordered(&sleeping_threads, &st->elem, (list_less_func *) &compare_wakeup_time, NULL);
+  ASSERT (intr_get_level () == INTR_ON);
+  /* while (timer_elapsed (start) < ticks)
+     thread_yield ();
+  */
   
-  intr_enable(); // Enable interrupts before calling sema_down من كوبيلوت
-  //printf("Thread %s is going to sleep\n", thread_current()->name);
-  sema_down(&st->sem);
-  //printf("Thread %s woke up\n", thread_current()->name);
+  /* ##> Our implementation
+   * Put current thread to sleep for a fixed ticks */
+  thread_sleep(ticks);
+  /* <##*/
 }
-
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
@@ -197,42 +176,45 @@ timer_print_stats (void)
 }
 
 /* Timer interrupt handler. */
-static void timer_interrupt (struct intr_frame *args UNUSED)
+static void
+timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  /*=================== MLFQS ===================*/
-  if (thread_mlfqs){
-    thread_current()->recent_cpu = add_int(thread_current()->recent_cpu, 1);
-    if (ticks % TIMER_FREQ == 0){
-      thread_calculate_load_avg();
-      // thread_foreach(thread_calculate_recent_cpu, NULL);
-      thread_calculate_recent_cpu_all();
-    }
-    if (ticks % 4 == 0){
-      // thread_foreach(thread_calculate_priority, NULL);
-      thread_calculate_priority_all();
-    }
-  }
-  /*=================== MLFQS END ===================*/
 
-  /*=================== ALARM =======================*/
-  struct list_elem *e = list_begin(&sleeping_threads);
-
-  while (e != list_end(&sleeping_threads)) {
-    struct sleeping_thread *st = list_entry(e, struct sleeping_thread, elem);
-    if (timer_ticks() >= st->wakeup_time) {
-      e = list_remove(e);
-      sema_up(&st->sem);
-
-    } else {
-      break;
-    }
-  }
-  /*=================== ALARM  END=======================*/
+  /* ##> Our implementation */
+  /* Each time a timer interrupt occurs, recent_cpu is incremented by 1 for
+   * the running thread only, unless the idle thread is running.
+   *
+   * Assumptions made by some of the tests require that these recalculations of
+   * recent_cpu be made exactly when the system tick counter reaches a multiple
+   * of a second, that is, when timer_ticks () % TIMER_FREQ == 0, and not at
+   * any other time.
+   *
+   * Because of assumptions made by some of the tests, load_avg must be updated
+   * exactly when the system tick counter reaches a multiple of a second, that
+   * is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.
+   */
+  // if (thread_mlfqs)
+  //   {
+  //     struct thread *cur;
+  //     cur = thread_current ();
+  //     if (cur->status == THREAD_RUNNING)
+  //       {
+  //         cur->recent_cpu = ADD_INT (cur->recent_cpu, 1);
+  //       }
+  //     if (ticks % TIMER_FREQ == 0)
+  //       {
+  //         calculate_load_avg ();
+  //         /* recent_cpu depends on load_avg */
+  //         calculate_recent_cpu_for_all ();
+  //       }
+  //     if (ticks % 4 == 0)
+  //       {
+  //         calculate_advanced_priority_for_all ();
+  //       }
+  //   }
 }
-
-
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

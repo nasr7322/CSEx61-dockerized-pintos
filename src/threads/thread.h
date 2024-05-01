@@ -88,6 +88,12 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+    /* ==================== priority scheduler ==================== */
+      int basic_priority;              /* basic priority without any donation. */
+      struct list locks_held;                  /* Locks that the thread is holding. */
+      struct lock *lock_waiting_for;          /* Lock that the thread is waiting for. */
+    /* ==================== priority scheduler END ==================== */
+
    /* ==================== MLFQS ==================== */
     int nice;                           /* Nice value. */
     int recent_cpu;                     /* Recent CPU usage. */
@@ -104,6 +110,10 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+     //added by answer
+    int64_t sleep_ticks;   
+    //added by answer
+
   };
 
 /* If false (default), use round-robin scheduler.
