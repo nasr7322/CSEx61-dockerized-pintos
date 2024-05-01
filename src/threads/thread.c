@@ -284,10 +284,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
 
   intr_set_level (old_level);
-  /* ==================== priority scheduler  ==================== */
-  // thread_yield ();
-  /*=================== priority scheduler end ====================*/
-}
+ }
 
 /* Returns the name of the running thread. */
 const char *
@@ -416,19 +413,14 @@ thread_set_nice (int nice)
   enum intr_level old_level = intr_disable ();
   list_sort(&ready_list, thread_compare_priority, NULL);
   struct thread *next = list_entry (list_begin (&ready_list), struct thread, elem);
-  if (next->priority > t->priority ) {
-    intr_set_level (old_level);
-    if (!intr_context ()) {
-      thread_yield ();
-    }
-    intr_set_level (old_level);
-  }
+
+  intr_set_level (old_level);
   /* ==================== MLFQS END ==================== */
 }
   bool thread_compare_priority(const struct list_elem *a, const struct list_elem *b) {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
-    return thread_a->priority < thread_b->priority;
+    return thread_a->priority > thread_b->priority;
   }
 
 /* Returns the current thread's nice value. */
@@ -477,7 +469,7 @@ int
 thread_get_recent_cpu (void) 
 {
   /* ==================== MLFQS ==================== */
-  // return fixed_to_int_nearest (mul_int (thread_current ()->recent_cpu, 100));
+  return fixed_to_int_nearest (mul_int (thread_current ()->recent_cpu, 100));
   /* ==================== MLFQS END ==================== */
 }
 /* ==================== MLFQS ==================== */
