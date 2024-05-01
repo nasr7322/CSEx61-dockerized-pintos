@@ -396,8 +396,10 @@ void
 thread_set_priority (int new_priority) 
 {
   /* ==================== priority scheduler  ==================== */
+  
   thread_current ()->basic_priority = new_priority;
-  if (new_priority > thread_current ()->priority)
+  
+  if ( thread_mlfqs || true ||new_priority > thread_current ()->priority)//we will remove true after solving donation logic 
     thread_current ()->priority = new_priority;
   /* ==================== priority scheduler  ==================== */
   // thread_current ()->priority = new_priority;
