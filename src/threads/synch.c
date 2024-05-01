@@ -226,6 +226,7 @@ void donate_priority(struct lock *lock, int donated_priority){
 
   // list_remove(&lock->holder->elem);
   // list_insert_ordered(&lock->holder->lock_waiting_for->semaphore.waiters, &lock->holder->elem, sema_priority_comparator, NULL);
+  // list_sort(&lock->holder->lock_waiting_for->semaphore.waiters, thread_priority_comparator, NULL);
   
   donate_priority(lock->holder->lock_waiting_for, donated_priority);
 }

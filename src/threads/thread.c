@@ -279,7 +279,8 @@ thread_unblock (struct thread *t)
   if (thread_mlfqs) {
     list_insert_ordered (&ready_list, &t->elem, thread_compare_priority, NULL);
   } else {
-    list_push_back (&ready_list, &t->elem);
+    // list_push_back (&ready_list, &t->elem);
+    list_insert_ordered (&ready_list, &t->elem, thread_priority_comparator, NULL);
   }
   t->status = THREAD_READY;
 
