@@ -7,8 +7,6 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-/* ##> Our implementation */
-// #include "threads/fixed-point.h"
 #include <string.h>
 
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -93,16 +91,8 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  /* while (timer_elapsed (start) < ticks)
-     thread_yield ();
-  */
-  
-  /* ##> Our implementation
-   * Put current thread to sleep for a fixed ticks */
   thread_sleep(ticks);
-  /* <##*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
