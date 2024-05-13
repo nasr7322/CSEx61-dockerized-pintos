@@ -17,10 +17,12 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#define MAX_ARGS 4096
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
+/*========== Argument Passing ==========*/
+static int setup_myStack(void **esp, char **save_ptr, char *token);
+/*========== Argument Passing END ==========*/
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -37,11 +39,23 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
+  /*========== Argument Passing ==========*/
+  char *file_name_copy = malloc(strlen(file_name) + 1);
+  if (!file_name_copy) {
+    free(file_name_copy);
+    palloc_free_page(fn_copy);
+    return TID_ERROR;
+  }
+  strlcpy(file_name_copy, file_name, PGSIZE);
+  char *save_ptr;
+  file_name = strtok_r(file_name_copy, " ", &save_ptr);
+  free(file_name_copy);
+  /*========== Argument Passing END ==========*/
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  // Should wait for the child process to load before returning
   return tid;
 }
 
@@ -59,8 +73,19 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  /*========== Argument Passing ==========*/
+  char *save_ptr, *token = strtok_r(file_name, " ", &save_ptr);
+  /*========== Argument Passing END ==========*/
   success = load (file_name, &if_.eip, &if_.esp);
-
+  /*========== Argument Passing ==========*/
+  struct thread *cur = thread_current();
+  if (success) {
+    setup_myStack(&if_.esp, &save_ptr, token);
+    // check the stack
+    // hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+    // Handle Open File and write deny
+  }
+  /*========== Argument Passing END ==========*/
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -76,6 +101,47 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
+/*========== Argument Passing ==========*/
+static int setup_myStack(void **esp, char **save_ptr, char *token) {
+  int argc = 0;
+  int i;
+  void *stack_ptr = *esp;
+  do {
+    size_t token_length = strlen(token) + 1;
+    stack_ptr -= token_length;
+    strlcpy(stack_ptr, token, token_length);
+    argc++;
+    if (PHYS_BASE - stack_ptr > MAX_ARGS) {
+      return -1;
+    }
+    token = strtok_r(NULL, " ", save_ptr);
+  } while (token != NULL);
+  char *arg_ptr = (char *)stack_ptr;
+  stack_ptr = (void *)(((intptr_t)stack_ptr) & 0xfffffffc);
+  stack_ptr = ((char **)stack_ptr) - 1;
+  *((char **)stack_ptr) = 0;
+  for (i = 0; i < argc; i++) {
+    while (*(arg_ptr - 1) != '\0') 
+      ++arg_ptr;
+    stack_ptr = (char **)stack_ptr - 1;
+    *((char **)stack_ptr) = arg_ptr;
+    arg_ptr++;
+  }
+  char **argv = (char **)stack_ptr;
+  stack_ptr = ((char **)stack_ptr) - 1;
+  *((char ***)stack_ptr) = argv;
+
+  int *stack_ptr_int = (int *)stack_ptr;
+  stack_ptr_int--;
+  *stack_ptr_int = argc;
+  stack_ptr = (void *)stack_ptr_int;
+
+  stack_ptr = ((void **)stack_ptr) - 1;
+  *((void **)stack_ptr) = 0;
+  *esp = stack_ptr;
+  return 0;
+}
+/*========== Argument Passing END ==========*/
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -88,6 +154,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while (1) thread_yield();
   return -1;
 }
 
