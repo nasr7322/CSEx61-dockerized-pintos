@@ -113,7 +113,7 @@ struct thread
   struct child{
       tid_t tid;
       bool isWaitedOn;
-      int exitC;
+      int exitCode;
       struct list_elem elem;
   };
   /*=============wait end=====================*/

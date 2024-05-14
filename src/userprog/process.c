@@ -92,14 +92,13 @@ process_wait (tid_t child_tid)
   struct child *realChild  = NULL;
   struct list_elem *elem = NULL;
 
-  for(struct list_elem *i = list_begin(&thread_current->childs);i != list_end(&thread_current->childs);i = list_next(i))
+  for(struct list_elem *i = list_begin(&thread_current()->childs);i != list_end(&thread_current()->childs);i = list_next(i))
   {
-    struct child *tempChild = list_entry(i, struct child, elem)
+    struct child *tempChild = list_entry(i, struct child, elem);
     if(tempChild->tid == child_tid)
     {
       realChild = tempChild;
       elem = i;
-      break;
     }
   }
 
@@ -110,7 +109,7 @@ process_wait (tid_t child_tid)
   if(!realChild->isWaitedOn)
     sema_down(&thread_current()->childLock);
 
-  int exitC = child->exitC;
+  int exitCode = child->exitCode;
   list_remove(elem);
 
   printf("waited\n");
