@@ -93,9 +93,26 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+
+   /*=============wait=====================*/
+   struct wait_status *wait_status;
+   struct list children;
+
+  struct wait_status{
+      tid_t tid;
+      bool isWaitedOn;
+      struct list_elem elem;
+      struct lock lock;
+      int ref_cnt; /*2 = both alive, 1 = one alive, 0 =all dead.*/
+      int exit_code;
+      struct semaphore dead; /*1 = child alive,0 = child dead.*/
+  };
+   /*=============wait=====================*/
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
    
 #endif
     /* Owned by userprog/process.c. */
@@ -109,14 +126,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
-  /*=============wait=====================*/
-  struct child{
-      tid_t tid;
-      bool isWaitedOn;
-      int exitCode;
-      struct list_elem elem;
-  };
-  /*=============wait end=====================*/
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

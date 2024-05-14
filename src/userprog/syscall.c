@@ -23,9 +23,11 @@ syscall_handler (struct intr_frame *f)
   
 
   if(syscall_num == SYS_HALT)
-    printf("SYS_HALT\n");
-  else if(syscall_num == SYS_EXIT)
-    thread_exit();
+    halt();
+  else if(syscall_num == SYS_EXIT){
+    int status = *((int *)f->esp + 1);
+    exit(status,f);
+  }
   else if(syscall_num == SYS_EXEC)
     printf("SYS_EXEC\n");
   else if(syscall_num == SYS_WAIT)
@@ -84,6 +86,23 @@ void handle_open(struct intr_frame *f){
     f->eax = -1;
   }else{
     f->eax = file_descriptor;
-    file_descriptor++;  
+    file_descriptor++;
   }
+}
+
+void halt (void){
+  shutdown_power_off();
+}
+
+void exit (int status, struct intr_frame *f){
+  struct thread *cur = thread_current();
+  printf("%s: exit(%d)\n", cur->name, status);
+
+  // handle parents
+  
+  // handle children
+
+  // handle open files
+
+  thread_exit();
 }
