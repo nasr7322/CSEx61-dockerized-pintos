@@ -201,6 +201,11 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  /*=============wait=====================*/
+  struct child *c = malloc(sizeof(*c));
+  c->tid = tid;
+  /*=============wait end=====================*/
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -467,6 +472,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   sema_init(&t->wait_sema, 0);
+
+   /*=============wait=====================*/
+  list_init(&t->childs);
+  t->waitingThisChild = 0;
+  sema_init(&t->childLock);
+  /*=============wait end=====================*/
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

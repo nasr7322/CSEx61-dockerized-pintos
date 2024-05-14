@@ -109,6 +109,15 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+  /*=============wait=====================*/
+  struct child{
+      tid_t tid;
+      bool isWaitedOn;
+      int exitC;
+      struct list_elem elem;
+  };
+  /*=============wait end=====================*/
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
