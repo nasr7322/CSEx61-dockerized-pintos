@@ -25,7 +25,7 @@ syscall_handler (struct intr_frame *f)
   if(syscall_num == SYS_HALT)
     printf("SYS_HALT\n");
   else if(syscall_num == SYS_EXIT)
-    printf("SYS_EXIT\n");
+    thread_exit();
   else if(syscall_num == SYS_EXEC)
     printf("SYS_EXEC\n");
   else if(syscall_num == SYS_WAIT)
