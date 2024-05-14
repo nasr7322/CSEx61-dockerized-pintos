@@ -1,2 +1,5 @@
 .vscode/settings.json
 **/.DS_Store
+src/examples/*.o
+src/examples/lib/*.o
+src/examples/lib/user/*.o
