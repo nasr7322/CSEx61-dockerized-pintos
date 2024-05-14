@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -88,13 +89,15 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  sema_down(&thread_current()->wait_sema);
+  printf("waited\n");
 }
 
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
+  printf("exiting....\n");
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
@@ -114,6 +117,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  sema_up(&cur->parent->wait_sema);
+  printf("exited\n");
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -437,7 +443,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE-12;
       else
         palloc_free_page (kpage);
     }
