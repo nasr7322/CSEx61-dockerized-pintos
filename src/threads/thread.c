@@ -183,10 +183,13 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  
+     /*=============wait=====================*/
   #ifdef USERPROG
   t->parent = thread_current();
   list_push_back(&t->parent->children, &t->elem);
   #endif
+     /*=============wait=====================*/
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
