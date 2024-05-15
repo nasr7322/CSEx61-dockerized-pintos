@@ -95,18 +95,10 @@ struct thread
 
 
    /*=============wait=====================*/
-   struct wait_status *wait_status;
    struct list children;
-
-  struct wait_status{
-      tid_t tid;
-      bool isWaitedOn;
-      struct list_elem elem;
-      struct lock lock;
-      int ref_cnt; /*2 = both alive, 1 = one alive, 0 =all dead.*/
-      int exit_code;
-      struct semaphore dead; /*1 = child alive,0 = child dead.*/
-  };
+   struct thread *parent;
+   struct semaphore childLock;
+   int waitingThisChild;
    /*=============wait end=====================*/
 
 #ifdef USERPROG
@@ -125,6 +117,15 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+  /*=============wait=====================*/
+  struct child{
+      tid_t tid;
+      bool isWaitedOn;
+      int exitCode;
+      struct list_elem elem;
+  };
+  /*=============wait end=====================*/
 
 
 

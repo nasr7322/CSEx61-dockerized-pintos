@@ -87,14 +87,14 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid)
+process_wait (tid_t child_tid) 
 {
-  struct wait_status *realChild  = NULL;
+  struct child *realChild  = NULL;
   struct list_elem *elem = NULL;
 
   for(struct list_elem *i = list_begin(&thread_current()->children);i != list_end(&thread_current()->children);i = list_next(i))
   {
-    struct wait_status *tempChild = list_entry(i, struct wait_status, elem);
+    struct child *tempChild = list_entry(i, struct child, elem);
     if(tempChild->tid == child_tid)
     {
       realChild = tempChild;
@@ -102,14 +102,18 @@ process_wait (tid_t child_tid)
     }
   }
 
-  if(realChild == NULL || elem == NULL)
+  if(realChild == NULL || elem == NULL) 
     return -1;
 
-  // thread_current()->tid = realChild->tid;
-  if(!realChild->isWaitedOn)
-    sema_down(&thread_current()->lock);
+  // Mark current thread as waiting for this child
+  thread_current()->waitingThisChild = realChild->tid;
 
-  int exitCode = realChild->exit_code;
+  // If the child is not waited on, wait using semaphore
+  if(!realChild->isWaitedOn)        
+    sema_down(&thread_current()->childLock);
+
+  // Get the exit code of the child should be set by when exit from child
+  int exitCode = child->exitCode;
   list_remove(elem);
 
   printf("waited\n");

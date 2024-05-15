@@ -184,12 +184,14 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   
-     /*=============wait=====================*/
+  /*   /*=============wait=====================
   #ifdef USERPROG
   t->parent = thread_current();
   list_push_back(&t->parent->children, &t->elem);
   #endif
-     /*=============wait end=====================*/
+     =============wait end=====================*/
+
+   
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -206,10 +208,13 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  /*=============wait=====================*/
-  struct child *c = malloc(sizeof(*c));
-  c->tid = tid;
-  /*=============wait end=====================*/
+  /*======================wait=======================*/
+    struct child *c = malloc(sizeof(*c));
+    c->tid = tid;
+    c->isWaitedOn = false;
+    //c->exitCode = some value  //init with proper value:)
+    list_push_back(&running_thread()->children, &c->elem);
+  /*====================wait end=====================*/
 
   /* Add to run queue. */
   thread_unblock (t);
