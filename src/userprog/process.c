@@ -103,22 +103,22 @@ process_wait (tid_t child_tid)
     }
   }
 
-  if(realChild == NULL || elem == NULL) 
+  if(realChild == NULL || elem == NULL)
     return -1;
 
   // Mark current thread as waiting for this child
   thread_current()->waitingThisChild = realChild->tid;
 
   // If the child is not waited on, wait using semaphore
-  if(!realChild->isWaitedOn)        
+  if(!realChild->isWaitedOn)
     sema_down(&thread_current()->childLock);
 
   // Get the exit code of the child should be set when exit from child
-  int exitCode = realchild->exitCode;
+  int exCode = realchild->exitCode;
   list_remove(elem);
 
   printf("waited\n");
-  return exitCode;
+  return exCode;
 }
 
 
@@ -130,10 +130,45 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  // Close all files
+
+  // Close the executable file
+
+  // check parents and children
+
+  // If the parent is waiting for this child, signal the parent
+  if(cur->parent != NULL && cur->parent->waitingThisChild == thread_current()->tid)
+  {
+    struct list_elem *elem = NULL;
+    for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
+      struct child *tempChild = list_entry(i, struct child, elem);
+      if (tempChild->tid == thread_current()->tid) {
+        tempChild->exitCode = cur->exitStatus;
+        elem = i;
+        break;
+      }
+    }
+    cur->parent->waitingThisChild = -1;
+    sema_up(&thread_current()->parent->childLock);
+  }
+  //else, remove the current thread from the parent's children list
+  else if(cur->parent != NULL)
+  {
+    for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
+      struct child *tempChild = list_entry(i, struct child, elem);
+      if (tempChild->tid == thread_current()->tid) {
+        list_remove(i);
+        break;
+      }
+    }
+  }
+    
+  
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
-  if (pd != NULL) 
+  if (pd != NULL)
     {
       /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
@@ -146,12 +181,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  if (cur->parent != NULL) {
-    sema_up(&cur->parent->wait_sema);
-  }
-  /////////////////wait////////
-  thread_exit();
-  /////////////////wait////////
   printf("exited\n");
 }
 

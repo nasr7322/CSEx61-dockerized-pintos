@@ -19,14 +19,13 @@ syscall_handler (struct intr_frame *f)
 {
   printf ("system call!\n");
   int syscall_num = *(int *)f->esp;
-  
-  
+
    /*=============wait=====================*/
   if(syscall_num == SYS_HALT)
     halt();
   else if(syscall_num == SYS_EXIT){
     int status = *((int *)f->esp + 1);
-    exit(status,f);
+    Syscall_exit(status);
   }
      /*=============wait=====================*/
   else if(syscall_num == SYS_EXEC)
@@ -97,16 +96,10 @@ void halt (void){
   shutdown_power_off();
 }
 
-void exit (int status, struct intr_frame *f){
+void Syscall_exit (int status){
   struct thread *cur = thread_current();
   printf("%s: exit(%d)\n", cur->name, status);
-
-  // handle parents
-  
-  // handle children
-
-  // handle open files
-
+  cur->exitStatus = status;
   thread_exit();
 }
    /*=============wait=====================*/

@@ -39,7 +39,7 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* Stack frame for kernel_thread(). */
-struct kernel_thread_frame 
+struct kernel_thread_frame
   {
     void *eip;                  /* Return address. */
     thread_func *function;      /* Function to call. */
@@ -209,6 +209,7 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /*======================wait=======================*/
+  //making a child and adding it to the parent's children list
     struct child *c = malloc(sizeof(*c));
     c->tid = tid;
     c->isWaitedOn = false;

@@ -99,6 +99,7 @@ struct thread
    struct thread *parent;
    struct semaphore childLock;
    int waitingThisChild;
+   int exitStatus; //taken from syscall exit and sent to it's parent when exited
    /*=============wait end=====================*/
 
 #ifdef USERPROG
