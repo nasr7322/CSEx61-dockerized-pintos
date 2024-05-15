@@ -87,36 +87,34 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid) 
+process_wait (tid_t child_tid)
 {
-  struct child *realChild  = NULL;
+  struct wait_status *realChild  = NULL;
   struct list_elem *elem = NULL;
 
-  for(struct list_elem *i = list_begin(&thread_current->childs);i != list_end(&thread_current->childs);i = list_next(i))
+  for(struct list_elem *i = list_begin(&thread_current()->children);i != list_end(&thread_current()->children);i = list_next(i))
   {
-    struct child *tempChild = list_entry(i, struct child, elem)
+    struct wait_status *tempChild = list_entry(i, struct wait_status, elem);
     if(tempChild->tid == child_tid)
     {
       realChild = tempChild;
       elem = i;
-      break;
     }
   }
 
-  if(realChild == NULL || elem == NULL) 
+  if(realChild == NULL || elem == NULL)
     return -1;
 
-  thread_current()->waitingThisChild = realChild->tid;
+  // thread_current()->tid = realChild->tid;
   if(!realChild->isWaitedOn)
-    sema_down(&thread_current()->childLock);
+    sema_down(&thread_current()->lock);
 
-  int exitC = child->exitC;
+  int exitCode = realChild->exit_code;
   list_remove(elem);
 
   printf("waited\n");
-  return exitC;
+  return exitCode;
 }
-  
 
 
 /* Free the current process's resources. */
@@ -143,10 +141,16 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  sema_up(&cur->parent->wait_sema);
+  if (cur->parent != NULL) {
+    sema_up(&cur->parent->wait_sema);
+  }
+  /////////////////wait////////
+  thread_exit();
+  /////////////////wait////////
   printf("exited\n");
-
 }
+
+
 
 /* Sets up the CPU for running user code in the current
    thread.
