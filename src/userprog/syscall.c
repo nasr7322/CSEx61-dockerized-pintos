@@ -28,7 +28,7 @@ syscall_handler (struct intr_frame *f)
     int status = *((int *)f->esp + 1);
     exit(status,f);
   }
-     /*=============wait=====================*/س
+     /*=============wait=====================*/
   else if(syscall_num == SYS_EXEC)
     printf("SYS_EXEC\n");
   else if(syscall_num == SYS_WAIT)
