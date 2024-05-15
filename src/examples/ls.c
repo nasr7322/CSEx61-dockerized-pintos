@@ -15,7 +15,9 @@
 static bool
 list_dir (const char *dir, bool verbose) 
 {
+  // printf("openning dir %s\n", dir);
   int dir_fd = open (dir);
+  printf("dir_fd %d\n", dir_fd);
   if (dir_fd == -1) 
     {
       printf ("%s: not found\n", dir);
@@ -67,6 +69,7 @@ list_dir (const char *dir, bool verbose)
 int
 main (int argc, char *argv[]) 
 {
+  // printf("mainnnnn\n");
   bool success = true;
   bool verbose = false;
   
