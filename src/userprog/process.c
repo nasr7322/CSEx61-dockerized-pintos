@@ -99,6 +99,7 @@ process_wait (tid_t child_tid)
     {
       realChild = tempChild;
       elem = i;
+      break;
     }
   }
 
@@ -112,8 +113,8 @@ process_wait (tid_t child_tid)
   if(!realChild->isWaitedOn)        
     sema_down(&thread_current()->childLock);
 
-  // Get the exit code of the child should be set by when exit from child
-  int exitCode = child->exitCode;
+  // Get the exit code of the child should be set when exit from child
+  int exitCode = realchild->exitCode;
   list_remove(elem);
 
   printf("waited\n");
