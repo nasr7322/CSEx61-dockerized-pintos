@@ -191,7 +191,10 @@ thread_create (const char *name, int priority,
   #endif
      =============wait end=====================*/
 
-   
+  /*====================== files ======================*/
+  list_init(&t->open_files);
+  t->next_fd = 2;
+  /*====================== files end ======================*/
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);

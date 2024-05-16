@@ -92,6 +92,10 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+   /*============= files =====================*/
+   struct list open_files;
+   int next_fd;
+   /*============= files end =====================*/
 
 
    /*=============wait=====================*/
@@ -117,6 +121,15 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+   /*=============files=====================*/
+   struct thread_file{
+      int fd;
+      struct file *file;
+      struct list_elem elem;
+   };
+   /*=============files end=====================*/
+
 
   /*=============wait=====================*/
   struct child{
