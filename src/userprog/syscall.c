@@ -20,14 +20,14 @@ syscall_handler (struct intr_frame *f)
   printf ("system call!\n");
   int syscall_num = *(int *)f->esp;
 
-   /*=============wait=====================*/
+/*=============wait=====================*/
   if(syscall_num == SYS_HALT)
     halt();
   else if(syscall_num == SYS_EXIT){
     int status = *((int *)f->esp + 1);
     Syscall_exit(status);
   }
-     /*=============wait=====================*/
+/*=============wait=====================*/
   else if(syscall_num == SYS_EXEC)
     printf("SYS_EXEC\n");
   else if(syscall_num == SYS_WAIT)
