@@ -3,369 +3,352 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/init.h"
-#include "devices/shutdown.h" // for SYS_HALT
-#include "threads/synch.h"
-#include "threads/vaddr.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
-#include "lib/kernel/list.h"
+#include "threads/vaddr.h"
+#include "devices/input.h"
+#include "devices/shutdown.h"
+#include "threads/malloc.h"
+#include "threads/palloc.h"
+#include "threads/synch.h"
+#include "userprog/process.h"
+#include "userprog/pagedir.h"
+#include "filesys/off_t.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
+#include "filesys/free-map.h"
+#include "list.h"
 
 
+/*================== files ======================*/
+struct lock file_lock;
 
+bool is_valid_pointer(const void *vaddr);
+bool is_valid_string(const char *str);
+bool is_valid_buffer(const void *buffer, unsigned size);
 
-void wrapper_write(struct intr_frame *f);
-void wrapper_read(struct intr_frame *f);
-void wrapper_close(struct intr_frame *f);
-void wrapper_open(struct intr_frame *f);
-void wrapper_create(struct intr_frame *f);
-void wrapper_wait(struct intr_frame *f);
-void wrapper_exec(struct intr_frame *f);
-void wrapper_exit(struct intr_frame *f);
-void wrapper_remove(struct intr_frame *f);
+struct file *get_file(int fd);
 
-// called before any system call
+void create(struct intr_frame *f);
+void remove(struct intr_frame *f);
+void open(struct intr_frame *f);
+void file_size(struct intr_frame *f);
+void read(struct intr_frame *f);
+void write(struct intr_frame *f);
+void seek(struct intr_frame *f);
+void tell(struct intr_frame *f);
+void close(struct intr_frame *f);
+/*=================== files end ====================*/
+
+static void syscall_handler (struct intr_frame *);
+
 void
-syscall_init (void)
+syscall_init (void) 
 {
-    intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-    lock_init(&write_lock);
+  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  /*============= files =====================*/
+  lock_init(&file_lock);
+  /*============= files end =====================*/
 }
-
-
-
-
 
 static void
-syscall_handler (struct intr_frame *f) {
-    if(!valid_esp(f)) {
-        exit(-1);
-    }
+syscall_handler (struct intr_frame *f) 
+{
+  // printf ("system call!\n");
+  int syscall_num = *(int *)f->esp;
 
-    switch(*(int*)f->esp) {
-        case SYS_HALT: {
-            halt();
-            break;
-        }
-        case SYS_EXIT: {
-            wrapper_exit(f);
+   /*=============wait=====================*/
+  if(syscall_num == SYS_HALT)
+    halt();
+  else if(syscall_num == SYS_EXIT){
+    int status = *((int *)f->esp + 1);
+    Syscall_exit(status);
+  }
+     /*=============wait=====================*/
+  else if(syscall_num == SYS_EXEC)
+    f->eax = process_execute((const char *)*((int *)f->esp + 1));
+    // printf("SYS_EXEC\n");
+  else if(syscall_num == SYS_WAIT)
+    f->eax = process_wait(*((int *)f->esp + 1));
+    // printf("SYS_WAIT\n");
 
-            break;
-        }
-        case SYS_EXEC:{
-            wrapper_exec(f);
-            break;
-        }
-        case SYS_WAIT:{
-            wrapper_wait(f);
-            break;
-        }
-        case SYS_WRITE: {
-            wrapper_write(f);
-            break;
-        }case SYS_CREATE:{
-            wrapper_create(f);
-            break;
-        }case SYS_OPEN :{
-            wrapper_open(f);
-            break;
-        }case SYS_CLOSE:{
-            wrapper_close(f);
-            break;
-        }
-        case SYS_READ :{
-            wrapper_read(f);
-            break;
-        }case SYS_FILESIZE:{
-
-            get_size(f);
-            break;
-        }case SYS_SEEK:{
-            seek(f);
-            break;
-        }case SYS_TELL:{
-            tell(f);
-            break;
-        }case SYS_REMOVE:{
-            wrapper_remove(f);
-            break;
-        }
-        default:{
-            // negative area
-        }
-    }
-
+  /*================== files ======================*/
+  else if(syscall_num == SYS_CREATE)
+    // printf("SYS_CREATE\n");
+    create(f);
+  else if(syscall_num == SYS_REMOVE)
+    // printf("SYS_REMOVE\n");
+    remove(f);
+  else if(syscall_num == SYS_OPEN)
+    // handle_open(f);
+    open(f);
+  else if(syscall_num == SYS_FILESIZE)
+    // printf("SYS_FILESIZE\n");
+    file_size(f);
+  else if(syscall_num == SYS_READ)
+    // printf("SYS_READ\n");
+    read(f);
+  else if(syscall_num == SYS_WRITE)
+    // handle_write(f);
+    write(f);
+  else if(syscall_num == SYS_SEEK)
+    // printf("SYS_SEEK\n");
+    seek(f);
+  else if(syscall_num == SYS_TELL)
+    // printf("SYS_TELL\n");
+    tell(f);
+  else if(syscall_num == SYS_CLOSE)
+    // printf("SYS_CLOSE\n");
+    close(f);
+  /*=================== files end ====================*/
+  else
+    printf("Unknown system call %d\n", syscall_num);
+  
+  // printf("syscall finished!\n");
+  // thread_exit ();
 }
 
-// check the pointer to file , if it is valid , then call remove function
-void wrapper_remove(struct intr_frame *f){
-    char *  file_name = (char *) (*((int *) f->esp + 1));
-    if(!valid(file_name)){
-        exit(-1);
-    }
-    f->eax = remove(file_name);
+/*================== files ======================*/
+bool is_valid_pointer(const void *vaddr){
+  if(!is_user_vaddr(vaddr))
+    return false;
+  void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
+  if(ptr == NULL)
+    return false;
+  return true;
 }
 
-// to remove file
-int remove(char * file_name){
-    int res = -1;
-    lock_acquire(&write_lock);
-    res = filesys_remove(file_name);
-    lock_release(&write_lock);
-    return res;
+bool is_valid_string(const char *str){
+  if(!is_valid_pointer(str))
+    return false;
+  while(*str != '\0'){
+    str++;
+    if(!is_valid_pointer(str))
+      return false;
+  }
+  return true;
 }
 
-// take fd and return postion to next bite to be read or writen
-void tell(struct intr_frame *f){
-    int fd = (int ) (*((int *) f->esp + 1));
-    struct user_file * file = get_file(fd);
-    if(file ==  NULL){
-        f->eax =- 1;
-    }else{
-        lock_acquire(&write_lock);
-        f->eax = file_tell(file->file);
-        lock_release(&write_lock);
-    }
+bool is_valid_buffer(const void *buffer, unsigned size){
+  const char *ptr = buffer;
+  for(unsigned i = 0; i < size; i++){
+    if(!is_valid_pointer(ptr + i))
+      return false;
+  }
+  return true;
 }
 
-// take postion and fd then change the postion to be read ro written in this file to this position
+struct file *get_file(int fd){
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+  for(e = list_begin(&cur->user_files); e != list_end(&cur->user_files); e = list_next(e)){
+    struct thread_file *tf = list_entry(e, struct thread_file, elem);
+    if(tf->fd == fd)
+      return tf->file;
+  }
+  return NULL;
+}
+
+void create(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1) || !is_valid_pointer((void *)f->esp + 2)){
+    Syscall_exit(-1);
+    return;
+  }
+  const char *name = (const char *)*((int *)f->esp + 1);
+  unsigned initial_size = *((unsigned *)f->esp + 2);
+  if(!is_valid_string(name)){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  bool success = filesys_create(name, initial_size);
+  lock_release(&file_lock);
+  f->eax = success;
+}
+
+void remove(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1)){
+    Syscall_exit(-1);
+    return;
+  }
+  const char *name = (const char *)*((int *)f->esp + 1);
+  if(!is_valid_string(name)){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  bool success = filesys_remove(name);
+  lock_release(&file_lock);
+  f->eax = success;
+}
+
+void open(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1)){
+    Syscall_exit(-1);
+    return;
+  }
+  const char *name = (const char *)*((int *)f->esp + 1);
+  if(!is_valid_string(name)){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  struct file *file = filesys_open(name);
+  lock_release(&file_lock);
+  if(file == NULL)
+    f->eax = -1;
+  else{
+    struct thread *cur = thread_current();
+    struct thread_file *tf = malloc(sizeof(struct thread_file));
+    tf->fd = cur->next_fd++;
+    tf->file = file;
+    list_push_back(&cur->user_files, &tf->elem);
+    f->eax = tf->fd;
+  }
+}
+
+void file_size(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  struct file *file = get_file(fd);
+  if(file == NULL){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  int size = file_length(file);
+  lock_release(&file_lock);
+  f->eax = size;
+}
+
+void read(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1) || !is_valid_pointer((void *)f->esp + 2) || !is_valid_pointer((void *)f->esp + 3)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  void *buffer = (void *)*((int *)f->esp + 2);
+  unsigned size = *((unsigned *)f->esp + 3);
+  if(!is_valid_buffer(buffer, size)){
+    Syscall_exit(-1);
+    return;
+  }
+  if(fd == 0){
+    for(unsigned i = 0; i < size; i++)
+      *((uint8_t *)buffer + i) = input_getc();
+    f->eax = size;
+    return;
+  }
+  struct file *file = get_file(fd);
+  if(file == NULL){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  int bytes_read = file_read(file, buffer, size);
+  lock_release(&file_lock);
+  f->eax = bytes_read;
+}
+
+void write(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1) || !is_valid_pointer((void *)f->esp + 2) || !is_valid_pointer((void *)f->esp + 3)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  const void *buffer = (const void *)*((int *)f->esp + 2);
+  unsigned size = *((unsigned *)f->esp + 3);
+  if(!is_valid_buffer(buffer, size)){
+    Syscall_exit(-1);
+    return;
+  }
+  if(fd == 1){
+    putbuf(buffer, size);
+    f->eax = size;
+    return;
+  }
+  struct file *file = get_file(fd);
+  if(file == NULL){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  int bytes_written = file_write(file, buffer, size);
+  lock_release(&file_lock);
+  f->eax = bytes_written;
+}
+
 void seek(struct intr_frame *f){
-    int fd = (int ) (*((int *) f->esp + 1));
-    unsigned pos = (unsigned) (*((int *) f->esp + 2));
-    struct user_file * file = get_file(fd);
-    if(file ==  NULL){
-        f->eax =- 1;
-    }else{
-        lock_acquire(&write_lock);
-        file_seek(file->file,pos);
-        f->eax = pos;
-        lock_release(&write_lock);
-    }
-}
-// take the fd for the file , and return it's size
-void get_size(struct intr_frame *f){
-    int fd = (int ) (*((int *) f->esp + 1));
-    struct user_file * file = get_file(fd);
-    if(file ==  NULL){
-        f->eax =- 1;
-    }else{
-        lock_acquire(&write_lock);
-        f->eax = file_length(file->file);
-        lock_release(&write_lock);
-    }
-}
-// check the parametar (fd and buffer  and if they are valid then call read function otherwise exit
-void wrapper_read(struct intr_frame *f){
-    int fd = (int ) (*((int *) f->esp + 1));
-    char * buffer = (char * ) (*((int *) f->esp + 2));
-    if(fd==1 || !valid(buffer)){
-        // fd is 1 means (stdout ) so it is not allowed
-        exit(-1);
-    }
-    unsigned size = *((unsigned *) f->esp + 3);
-    f->eax = read(fd,buffer,size);
-}
-// take fd for target file and buffer to save the data in and size of to be read and reaturn the actual size to be read
-int read(int fd,char* buffer,unsigned size){
-    int res = size;
-    if(fd ==0){
-        // stdin .. so get the data with input_getc
-        while (size--)
-        {
-            lock_acquire(&write_lock);
-            char c = input_getc();
-            lock_release(&write_lock);
-            buffer+=c;
-        }
-        return res;
-    }
-    if(fd ==1){
-        // negative area
-    }
-
-    struct user_file * user_file =get_file(fd);
-
-    if(user_file==NULL){
-        return -1;
-    }else{
-        struct file * file = user_file->file;
-        lock_acquire(&write_lock);
-        size = file_read(file,buffer,size);
-        lock_release(&write_lock);
-        return size;
-    }
-}
-// check paramater (fd) and if it is valid call close fuction otherwise exit
-void wrapper_close(struct intr_frame *f){
-    int fd = (int) (*((int *) f->esp + 1));
-    if(fd<2){
-        // if the target is stdin or stdout
-        exit(-1);
-    }
-    f->eax = close(fd);
-}
-// take the fd for target file and close it if it exist to current process otherwise return -1
-int close(int fd){
-    struct user_file  *file = get_file(fd);
-    if(file!=NULL){
-        lock_acquire(&write_lock);
-        file_close(file->file);
-        lock_release(&write_lock);
-        list_remove(&file->elem);
-        return 1;
-    }
-    return -1;
-}
-// check paramater (pointer to file name ) and if it is valid call open function otherwise exit
-
-void wrapper_open(struct intr_frame *f){
-    char * file_name = (char *) (*((int *) f->esp + 1));
-    if(!valid(file_name)){
-        exit(-1);
-    }
-    f->eax = open(file_name);
+  if(!is_valid_pointer((void *)f->esp + 1) || !is_valid_pointer((void *)f->esp + 2)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  unsigned position = *((unsigned *)f->esp + 2);
+  struct file *file = get_file(fd);
+  if(file == NULL){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  file_seek(file, position);
+  lock_release(&file_lock);
 }
 
-// open file with name ( file name ) and return it's fd
-int open(char * file_name){
-    static unsigned long curent_fd = 2;
-    lock_acquire(&write_lock);
-    struct file * opened_file  = filesys_open(file_name);
-    lock_release(&write_lock);
+void tell(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  struct file *file = get_file(fd);
+  if(file == NULL){
+    Syscall_exit(-1);
+    return;
+  }
+  lock_acquire(&file_lock);
+  unsigned position = file_tell(file);
+  lock_release(&file_lock);
+  f->eax = position;
+}
 
-    if(opened_file==NULL){
-        return -1;
-    }else{
-        // wrapper contain the file and fd
-        struct user_file* user_file = (struct user_file*) malloc(sizeof(struct user_file));
-        int file_fd = curent_fd;
-        user_file->fd = curent_fd;
-        user_file->file = opened_file;
-        lock_acquire(&write_lock);
-        curent_fd++;
-        lock_release(&write_lock);
-        struct list_elem *elem = &user_file->elem;
-        list_push_back(&thread_current()->user_files, elem);
-        return file_fd;
+void close(struct intr_frame *f){
+  if(!is_valid_pointer((void *)f->esp + 1)){
+    Syscall_exit(-1);
+    return;
+  }
+  int fd = *((int *)f->esp + 1);
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+  for(e = list_begin(&cur->user_files); e != list_end(&cur->user_files); e = list_next(e)){
+    struct thread_file *tf = list_entry(e, struct thread_file, elem);
+    if(tf->fd == fd){
+      lock_acquire(&file_lock);
+      file_close(tf->file);
+      lock_release(&file_lock);
+      list_remove(e);
+      free(tf);
+      return;
     }
-}
-// check paramter ( pointer to name file ) and if it is valid call create function otherwise exit
-
-void wrapper_create(struct intr_frame *f){
-    char * file_name = (char * )*((int  *)f->esp + 1 );
-    if(!valid(file_name)){
-        exit(-1);
-    }
-    int initial_size = (unsigned) *((int *) f->esp + 2 );
-    f->eax = create(file_name,initial_size);
-}
-int  create(char * file_name,int initial_size){
-    int res = 0;
-    lock_acquire(&write_lock);
-    res = filesys_create (file_name,initial_size);
-    lock_release(&write_lock);
-    return res;
-}
-// check paramater (fd and poitner to buffer )and if they are valid call write function otherwise exit
-void wrapper_write(struct intr_frame *f){
-    int fd = *((int *) f->esp + 1);
-    char *buffer = (char *) (*((int *) f->esp + 2));
-    if(!valid(buffer) || fd ==0){
-        // fd is 0 when target is stdin so it is not allowed
-        exit(-1);
-    }
-    unsigned size = (unsigned)(*((int*) f->esp + 3));
-    f->eax = write(fd, buffer, size);
+  }
+  Syscall_exit(-1);
 }
 
-int write(int fd,char * buffer,unsigned size){
-    if(fd ==0){
-        // negative area
-    }
-    else if (fd == 1) {
-        lock_acquire(&write_lock);
-        putbuf(buffer, size);
-        lock_release(&write_lock);
-        return size;
-    }
+/*=================== files end ====================*/
 
-    struct user_file *file = get_file(fd);
-    if(file ==NULL){
-        return -1;
-    }else{
-        int res = 0;
-        lock_acquire(&write_lock);
-        res = file_write(file->file,buffer,size);
-        lock_release(&write_lock);
-        return res;
-    }
+   /*=============wait=====================*/
+void halt (void){
+  shutdown_power_off();
 }
 
-// check for pointer to tid
-void wrapper_wait(struct intr_frame *f){
-    if(!valid((int*)f->esp + 1))
-        exit(-1);
-    tid_t tid = *((int*)f->esp + 1);
-    f->eax = wait(tid);
+void Syscall_exit (int status){
+  struct thread *cur = thread_current();
+  printf("%s: exit(%d)\n", cur->name, status);
+  cur->exit_status = status;
+  thread_exit();
+}
+   /*=============wait=====================*/
 
-}
-// wait for child with coresponding tid
-tid_t wait(tid_t tid){
-    return process_wait(tid);
-}
-// execute file with this name and return the status of creation
-void wrapper_exec(struct intr_frame *f){
-    char *file_name = (char *) (*((int *) f->esp + 1));
-    f->eax = process_execute(file_name);
-}
-
-// Exit process
-
-void wrapper_exit(struct intr_frame *f){
-    int status = *((int*)f->esp + 1);
-    if(!is_user_vaddr(status)) {
-        f->eax = -1;
-        exit(-1);
-    }
-    f->eax = status;
-    exit(status);
-}
-
-// check stack pointer validation
-bool valid_esp(struct intr_frame *f ){
-    return valid((int*)f->esp) || ((*(int*)f->esp) < 0) || (*(int*)f->esp) > 12;
-}
-
-// shut down system
-void halt(){
-    printf("(halt) begin\n");
-    shutdown_power_off();
-}
-
-// return the file with fd if it open by current thread
-struct user_file *  get_file( int  fd){
-    struct user_file* ans = NULL;
-    struct list *l  = &(thread_current()->user_files);
-    for(struct list_elem* e = list_begin(l); e!=list_end(l) ; e =list_next(e)){
-        struct user_file*  file = list_entry(e, struct user_file , elem);
-        if((file->fd) ==fd){
-            return file;
-        }
-    }
-    return NULL;
-}
-
-// check validation in vertual memory
-bool valid ( void * name){
-    return name!=NULL && is_user_vaddr(name) && pagedir_get_page(thread_current()->pagedir, name) != NULL;
-}
-
-// exit process
-void exit(int status){
-    char * name = thread_current()->name;
-    char * save_ptr;
-    char * executable = strtok_r (name, " ", &save_ptr);
-    thread_current()->exit_status = status;
-    printf("%s: exit(%d)\n",executable,status);
-    thread_exit();
-}

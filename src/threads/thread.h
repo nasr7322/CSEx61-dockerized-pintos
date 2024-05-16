@@ -105,6 +105,8 @@ struct thread
     int exit_status;
     struct file * executable;           /* Pointer to executable file */
     struct list_elem child_elem;        /* List element for children List */
+    int next_fd;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -122,6 +124,13 @@ struct thread
     struct  file *  file  ;
  };
 
+/*=============files=====================*/
+   struct thread_file{
+      int fd;
+      struct file *file;
+      struct list_elem elem;
+   };
+   /*=============files end=====================*/
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
