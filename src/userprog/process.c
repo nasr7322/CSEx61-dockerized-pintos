@@ -45,10 +45,15 @@ process_execute (const char *file_name)
   // printf("sleep parent\n");
   sema_down(&thread_current()->parent_child_sync);
   // printf("parent wake\n");
-
+  // printf("creationg state %d\n",thread_current()->child_creation_success);
+ 
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+
+     if(thread_current()->child_creation_success == 0){
+    return TID_ERROR;
+  }
   return tid;
 }
  
@@ -69,13 +74,16 @@ start_process (void *file_name_)
 
   success = load (file_name, &if_.eip, &if_.esp);
 
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+  if (!success) {
+      thread_current()->parent->child_creation_success = 0;
+
+      sema_up(&thread_current()->parent->parent_child_sync);
+      // thread_exit();
+  }
   else{
   // add thread to children list
   list_push_back(&thread_current()->parent->children, &thread_current()->child_elem);
+      thread_current()->parent->child_creation_success = 1;
   
   /* wake parent*/
   sema_up(&thread_current()->parent->parent_child_sync);
@@ -83,6 +91,9 @@ start_process (void *file_name_)
   // printf("child woke up\n");
 
   }
+  
+  /* If load failed, quit. */
+  palloc_free_page (file_name);
 
 
   /* Start the user process by simulating a return from an
