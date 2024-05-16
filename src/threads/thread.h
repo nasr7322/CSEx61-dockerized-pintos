@@ -93,18 +93,9 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-
-   /*=============wait=====================*/
-   struct list children;
-   struct semaphore childLock;
-   int waitingThisChild;
-   int exitStatus; //taken from syscall exit and sent to it's parent when exited
-   /*=============wait end=====================*/
-
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-
    
 #endif
     /* Owned by userprog/process.c. */
@@ -120,17 +111,6 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
-
-  /*=============wait=====================*/
-  struct child{
-      tid_t tid;
-      bool isWaitedOn;
-      int exitCode;
-      struct list_elem elem;
-  };
-  /*=============wait end=====================*/
-
-
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

@@ -28,7 +28,6 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -39,7 +38,7 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* Stack frame for kernel_thread(). */
-struct kernel_thread_frame
+struct kernel_thread_frame 
   {
     void *eip;                  /* Return address. */
     thread_func *function;      /* Function to call. */
@@ -104,7 +103,7 @@ thread_init (void)
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
-thread_start (void)
+thread_start (void) 
 {
   /* Create the idle thread. */
   struct semaphore idle_started;
@@ -202,15 +201,6 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
-  /*======================wait=======================*/
-  //making a child and adding it to the parent's children list
-    struct child *c = malloc(sizeof(*c));
-    c->tid = tid;
-    c->isWaitedOn = false;
-    //c->exitCode = some value  //init with proper value:)
-    list_push_back(&running_thread()->children, &c->elem);
-  /*====================wait end=====================*/
 
   /* Add to run queue. */
   thread_unblock (t);
