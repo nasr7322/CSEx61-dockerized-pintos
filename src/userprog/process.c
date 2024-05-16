@@ -89,36 +89,40 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
-  struct child *realChild  = NULL;
-  struct list_elem *elem = NULL;
+  // struct child *realChild  = NULL;
+  // struct list_elem *elem = NULL;
 
-  for(struct list_elem *i = list_begin(&thread_current()->children);i != list_end(&thread_current()->children);i = list_next(i))
-  {
-    struct child *tempChild = list_entry(i, struct child, elem);
-    if(tempChild->tid == child_tid)
-    {
-      realChild = tempChild;
-      elem = i;
-      break;
-    }
+  // for(struct list_elem *i = list_begin(&thread_current()->children);i != list_end(&thread_current()->children);i = list_next(i))
+  // {
+  //   struct child *tempChild = list_entry(i, struct child, elem);
+  //   if(tempChild->tid == child_tid)
+  //   {
+  //     realChild = tempChild;
+  //     elem = i;
+  //     break;
+  //   }
+  // }
+
+  // if(realChild == NULL || elem == NULL)
+  //   return -1;
+
+  // // Mark current thread as waiting for this child
+  // thread_current()->waitingThisChild = realChild->tid;
+
+  // // If the child is not waited on, wait using semaphore
+  // if(!realChild->isWaitedOn)
+  //   sema_down(&thread_current()->childLock);
+
+  // // Get the exit code of the child should be set when exit from child
+  // int exCode = realChild->exitCode;
+  // list_remove(elem);
+
+  // printf("waited\n");
+  // return exCode;
+  while(true){
+    thread_yield();
   }
-
-  if(realChild == NULL || elem == NULL)
-    return -1;
-
-  // Mark current thread as waiting for this child
-  thread_current()->waitingThisChild = realChild->tid;
-
-  // If the child is not waited on, wait using semaphore
-  if(!realChild->isWaitedOn)
-    sema_down(&thread_current()->childLock);
-
-  // Get the exit code of the child should be set when exit from child
-  int exCode = realChild->exitCode;
-  list_remove(elem);
-
-  printf("waited\n");
-  return exCode;
+  return -1;
 }
 
 
@@ -127,61 +131,61 @@ void
 process_exit (void)
 {
   printf("exiting....\n");
-  struct thread *cur = thread_current ();
-  uint32_t *pd;
+  // struct thread *cur = thread_current ();
+  // uint32_t *pd;
 
-  // Close all files
+  // // Close all files
 
-  // Close the executable file
+  // // Close the executable file
 
-  // check parents and children
+  // // check parents and children
 
-  // If the parent is waiting for this child, signal the parent
-  if(cur->parent != NULL && cur->parent->waitingThisChild == thread_current()->tid)
-  {
-    struct list_elem *elem = NULL;
-    for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
-      struct child *tempChild = list_entry(i, struct child, elem);
-      if (tempChild->tid == thread_current()->tid) {
-        tempChild->exitCode = cur->exitStatus;
-        elem = i;
-        break;
-      }
-    }
-    cur->parent->waitingThisChild = -1;
-    sema_up(&thread_current()->parent->childLock);
-  }
-  //else, remove the current thread from the parent's children list
-  else if(cur->parent != NULL)
-  {
-    for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
-      struct child *tempChild = list_entry(i, struct child, elem);
-      if (tempChild->tid == thread_current()->tid) {
-        list_remove(i);
-        break;
-      }
-    }
-  }
+  // // If the parent is waiting for this child, signal the parent
+  // if(cur->parent != NULL && cur->parent->waitingThisChild == thread_current()->tid)
+  // {
+  //   struct list_elem *elem = NULL;
+  //   for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
+  //     struct child *tempChild = list_entry(i, struct child, elem);
+  //     if (tempChild->tid == thread_current()->tid) {
+  //       tempChild->exitCode = cur->exitStatus;
+  //       elem = i;
+  //       break;
+  //     }
+  //   }
+  //   cur->parent->waitingThisChild = -1;
+  //   sema_up(&thread_current()->parent->childLock);
+  // }
+  // //else, remove the current thread from the parent's children list
+  // else if(cur->parent != NULL)
+  // {
+  //   for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
+  //     struct child *tempChild = list_entry(i, struct child, elem);
+  //     if (tempChild->tid == thread_current()->tid) {
+  //       list_remove(i);
+  //       break;
+  //     }
+  //   }
+  // }
     
   
 
-  /* Destroy the current process's page directory and switch back
-     to the kernel-only page directory. */
-  pd = cur->pagedir;
-  if (pd != NULL)
-    {
-      /* Correct ordering here is crucial.  We must set
-         cur->pagedir to NULL before switching page directories,
-         so that a timer interrupt can't switch back to the
-         process page directory.  We must activate the base page
-         directory before destroying the process's page
-         directory, or our active page directory will be one
-         that's been freed (and cleared). */
-      cur->pagedir = NULL;
-      pagedir_activate (NULL);
-      pagedir_destroy (pd);
-    }
-  printf("exited\n");
+  // /* Destroy the current process's page directory and switch back
+  //    to the kernel-only page directory. */
+  // pd = cur->pagedir;
+  // if (pd != NULL)
+  //   {
+  //     /* Correct ordering here is crucial.  We must set
+  //        cur->pagedir to NULL before switching page directories,
+  //        so that a timer interrupt can't switch back to the
+  //        process page directory.  We must activate the base page
+  //        directory before destroying the process's page
+  //        directory, or our active page directory will be one
+  //        that's been freed (and cleared). */
+  //     cur->pagedir = NULL;
+  //     pagedir_activate (NULL);
+  //     pagedir_destroy (pd);
+  //   }
+  // printf("exited\n");
 }
 
 
