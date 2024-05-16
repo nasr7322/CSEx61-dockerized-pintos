@@ -110,9 +110,12 @@ struct thread
     /* Owned by userprog/process.c. */
 
    //  add wait semaphore
-    struct semaphore wait_sema;
+   struct semaphore wait_sema;
    //  add parent thread
-    struct thread *parent;
+   struct thread *parent;
+   //  add list of child threads
+   struct list children;
+   struct list_elem child_elem;      /* List element for children list. */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
