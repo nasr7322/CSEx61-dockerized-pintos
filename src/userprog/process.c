@@ -72,6 +72,9 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+
+  // add thread to children list
+  list_push_back(&thread_current()->parent->children, &thread_current()->child_elem);
   
   /* wake parent*/
   sema_up(&thread_current()->parent->parent_child_sync);
@@ -106,12 +109,17 @@ process_wait (tid_t child_tid)
   struct thread *t = thread_current();
   struct list_elem *e;
   struct thread *child = NULL;
+  // size of children list
+  int size = list_size(&t->children);
+  printf("size of children list is %d\n", size);
   for (e = list_begin(&t->children); e != list_end(&t->children); e = list_next(e))
   {
     struct thread *temp = list_entry(e, struct thread, child_elem);
+    printf("this id is %d but we look for %d\n", temp->tid, child_tid);
     if (temp->tid == child_tid)
     {
       sema_up(&temp->parent_child_sync);
+      printf("wait child...\n");
       sema_down(&temp->wait_for_child);
       break;
     }
