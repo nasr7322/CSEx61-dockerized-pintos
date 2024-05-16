@@ -111,9 +111,7 @@ thread_init (void)
 
   /*================alarm end===========*/
 
-  /*=================== priority scheduler  ====================*/
   
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
