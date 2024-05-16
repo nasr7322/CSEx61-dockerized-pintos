@@ -346,6 +346,9 @@ void halt (void){
 
 void Syscall_exit (int status){
   struct thread *cur = thread_current();
+  char *save_ptr;
+  char *executable = strtok_r(cur->name, " ", &save_ptr);
+  if (status < -1) status = -1;
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
   thread_exit();
