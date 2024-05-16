@@ -61,7 +61,7 @@ syscall_handler (struct intr_frame *f) {
             break;
         }
         case SYS_WRITE: {
-            // wrapper_write(f);
+            wrapper_write(f);
             break;
         }case SYS_CREATE:{
             wrapper_create(f);
