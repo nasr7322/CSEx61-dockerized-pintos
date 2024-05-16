@@ -89,6 +89,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
+  /*============ test ==============*/
+  // while(1){
+  //   thread_yield();
+  // };
+  /*============ test end ==============*/
   struct child *realChild  = NULL;
   struct list_elem *elem = NULL;
 
@@ -117,7 +122,7 @@ process_wait (tid_t child_tid)
   int exCode = realChild->exitCode;
   list_remove(elem);
 
-  printf("waited\n");
+  printf("waited=====================================\n");
   return exCode;
 }
 
@@ -507,7 +512,10 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
+        // *esp = PHYS_BASE;
+        /*============= test ==============*/
         *esp = PHYS_BASE-12;
+        /*============= test end ==============*/
       else
         palloc_free_page (kpage);
     }

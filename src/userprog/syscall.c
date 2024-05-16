@@ -6,6 +6,18 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/vaddr.h"
+#include "devices/input.h"
+#include "devices/shutdown.h"
+#include "threads/malloc.h"
+#include "threads/palloc.h"
+#include "threads/synch.h"
+#include "userprog/process.h"
+#include "userprog/pagedir.h"
+#include "filesys/off_t.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
+#include "filesys/free-map.h"
+
 
 /*================== files ======================*/
 struct lock file_lock;
@@ -53,9 +65,11 @@ syscall_handler (struct intr_frame *f)
   }
      /*=============wait=====================*/
   else if(syscall_num == SYS_EXEC)
-    printf("SYS_EXEC\n");
+    f->eax = process_execute((const char *)*((int *)f->esp + 1));
+    // printf("SYS_EXEC\n");
   else if(syscall_num == SYS_WAIT)
-    printf("SYS_WAIT\n");
+    f->eax = process_wait(*((int *)f->esp + 1));
+    // printf("SYS_WAIT\n");
 
   /*================== files ======================*/
   else if(syscall_num == SYS_CREATE)
