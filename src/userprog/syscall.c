@@ -365,7 +365,7 @@ void exit(int status){
     char * name = thread_current()->name;
     char * save_ptr;
     char * executable = strtok_r (name, " ", &save_ptr);
-    thread_current()->exit_status = status;
+    // thread_current()->exit_status = status;
     printf("%s: exit(%d)\n",executable,status);
     thread_exit();
 }

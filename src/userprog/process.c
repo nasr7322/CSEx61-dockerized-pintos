@@ -40,6 +40,12 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+
+  printf("sleep parent\n");
+  sema_down(&thread_current()->parent_child_sync);
+  printf("parent wake\n");
+
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -59,12 +65,18 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  printf("loading...\n");
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+  
+  /* wake parent*/
+  sema_up(&thread_current()->parent->parent_child_sync);
+  sema_down(&thread_current()->parent_child_sync);
+  printf("child woke up\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -86,8 +98,29 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  
+  // get thread with child_id from current thread's children list to lookup
+
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  struct thread *child = NULL;
+  for (e = list_begin(&t->children); e != list_end(&t->children); e = list_next(e))
+  {
+    struct thread *temp = list_entry(e, struct thread, child_elem);
+    if (temp->tid == child_tid)
+    {
+      sema_up(&temp->parent_child_sync);
+      sema_down(&temp->wait_for_child);
+      break;
+    }
+  }
+
+
+
+  
+
   return -1;
 }
 
@@ -228,7 +261,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -307,12 +339,55 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
+  /* Push the arguments themselves to the stack */
+  char *token, *save_ptr;
+  char *argv[128]; // array to store the arguments (ASSUMPTION: the number of arguments is less than 128)
+  int argc = 0;    // counter for the number of arguments
+  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+  {
+    *esp -= strlen(token) + 1;              // move the stack pointer to store the argument
+    argv[argc++] = *esp;                    // store the address of the argument in the array
+    memcpy(*esp, token, strlen(token) + 1); // copy the argument to the stack
+  }
 
+  // word-align the stack pointer
+  while ((uint32_t)*esp % 4 != 0)
+  {
+    *esp -= sizeof(char);
+    char c = 0;
+    memcpy(*esp, &c, sizeof(char)); // push a null character to the stack
+  }
+
+  // push a null pointer to the stack
+  *esp -= sizeof(char *);
+  char *null_pointer = NULL;
+  memcpy(*esp, &null_pointer, sizeof(char *));
+
+  // push the addresses of the arguments to the stack
+  for (int i = argc - 1; i >= 0; i--)
+  {
+    *esp -= sizeof(char *);
+    memcpy(*esp, &argv[i], sizeof(char *));
+  }
+
+  // push the address of the first argument to the stack
+  char *argv_address = *esp;
+  *esp -= sizeof(char *);
+  memcpy(*esp, &argv_address, sizeof(char *));
+
+  // push the number of arguments to the stack
+  *esp -= sizeof(int);
+  memcpy(*esp, &argc, sizeof(int));
+
+  // push a void return address to the stack
+  *esp -= sizeof(void *);
+  memcpy(*esp, &argv[argc], sizeof(void *));
   success = true;
 
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+
   return success;
 }
 
