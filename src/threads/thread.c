@@ -25,14 +25,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-//added from answer
-/*   List of processes in THREAD_BLOCK state, that is, processes
-   that are in sleep status. */
-static struct list sleep_list;
-static bool sleep_ticks_less(const struct list_elem *a_,
-                             const struct list_elem *b_,
-                             void *aux UNUSED);
-//end added from answer
+/*================alarm===========*/
+static struct list sleeping_threads;
+static bool ticks_comparator(const struct list_elem *a_,const struct list_elem *b_,void *aux UNUSED);
+/*================alarm end===========*/
 
 
 /* List of all processes.  Processes are added to this list
@@ -110,9 +106,11 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  //added from answe
-  list_init (&sleep_list);
-  //end added from answer
+  /*================alarm===========*/
+  list_init (&sleeping_threads);
+
+  /*================alarm end===========*/
+
   /*=================== priority scheduler  ====================*/
   
 
@@ -163,9 +161,21 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-  //added from answer
-  thread_wakeup();
-  //end added from answer
+
+  /*=============alarm===========*/
+  struct thread *temp;
+  enum intr_level old_level;
+  while (!list_empty (&sleeping_threads))
+    {
+      temp = list_entry (list_front (&sleeping_threads), struct thread, elem);
+      if (temp->sleep_ticks > timer_ticks())
+        break;
+      old_level = intr_disable ();
+      list_pop_front (&sleeping_threads);
+      thread_unblock (temp);
+      intr_set_level (old_level);
+    }
+  /*=============alarm end===========*/
 }
 
 /* Prints thread statistics. */
@@ -212,10 +222,10 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
-  //newly added from answer
+ 
    enum intr_level old_level;
    old_level = intr_disable ();
-  //end newly added from answer
+  
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -231,9 +241,9 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  //newly added from answer
+  
     intr_set_level (old_level);
-  //end newly added from answer
+ 
   /* Add to run queue. */
   
   thread_unblock (t);
@@ -757,103 +767,46 @@ allocate_tid (void)
   return tid;
 }
 /*=================== priority scheduler  ====================*/
-static bool 
+bool 
 thread_priority_comparator (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {
-  ASSERT (a_ != NULL);
-  ASSERT (b_ != NULL);
   const struct thread *a = list_entry (a_, struct thread, elem);
   const struct thread *b = list_entry (b_, struct thread, elem);
   return a->priority > b->priority;
 }
 
 /*=================== priority scheduler end ====================*/
+
+/*============alarm===========*/
+void
+put_to_sleep (int64_t ticks)
+{
+  enum intr_level old_level; 
+
+  thread_current()->sleep_ticks = ticks + timer_ticks ();
+
+  old_level = intr_disable ();
+
+  list_insert_ordered (&sleeping_threads, &thread_current()->elem, ticks_comparator, NULL);
+  
+  thread_block ();
+
+  intr_set_level (old_level);
+}
+
+static
+bool
+ticks_comparator (const struct list_elem *a_, const struct list_elem *b_,
+                  void *aux UNUSED)
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  return a->sleep_ticks < b->sleep_ticks;
+}
+/*============alarm end===========*/
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-//added from answer
-/* Put current thread to sleep for a given ticks time */
-void
-thread_sleep (int64_t ticks)
-{
-  /* get current time ticks
-   * set ticks in thread structe
-   * put thread into sleep queue
-   * turn interupts off
-   * put to block state
-   */
-  enum intr_level old_level; // In order to reset the interputs state afterward
 
-  /* Get current thread */
-  struct thread *cur = thread_current ();
-  /* Ask to sleep for 0 ticks */
-  if (ticks <= 0)
-    return;
 
-  ASSERT(cur->status == THREAD_RUNNING);
-
-  /* Get and set time ticks*/
-  cur->sleep_ticks = ticks + timer_ticks ();
-  /* Turn interupts off before operating on the current thread */
-  old_level = intr_disable ();
-  /* Put the thread into a sleep queue, whose element's sleep_ticks is in
-   * ascending order */
-  list_insert_ordered (&sleep_list, &cur->elem, sleep_ticks_less, NULL);
-
-  /* Block the thread*/
-  thread_block ();
-  /* Reset the interupts according to its level before turning off*/
-  intr_set_level (old_level);
-}
-
-/* Weak up a thread whose sleep_ticks is no bigger than the current ticks.
- * Here weak up means put a thread from sleep queue to ready queue and set
- * its thread_status from THREAD_BLOCKED to THREAD_READY which can be done
- * by calling thread_unblock(struct thread*)
- */
-void
-thread_wakeup (void)
-{
-  /* check threads in sleep queue by their sleep_ticks 
-   * if current sleep_ticks <= timer_ticks(), which is current ticks
-   * unblock it and remove it from sleep queue
-   * do these till found a thread whose sleep_ticks > timer_ticks()
-   */
-  struct list_elem *elem_cur; // Current element in the list
-  struct list_elem *elem_next; // Next element connected to the current one
-  struct thread *t;
-  enum intr_level old_level;
-
-  if (list_empty (&sleep_list))
-    return;
-
-  elem_cur = list_begin (&sleep_list);
-  while (elem_cur != list_end (&sleep_list))
-    {
-      elem_next = list_next (elem_cur);
-      t = list_entry (elem_cur, struct thread, elem);
-      if (t->sleep_ticks > timer_ticks())
-        break;
-
-      /* Remove the thread from sleep queue and unblock it */
-      old_level = intr_disable ();
-      list_remove (elem_cur);
-      thread_unblock (t);
-      intr_set_level (old_level);
-
-      elem_cur = elem_next;
-    }
-}
-static bool
-sleep_ticks_less (const struct list_elem *a_, const struct list_elem *b_,
-                  void *aux UNUSED)
-{
-  ASSERT (a_ != NULL);
-  ASSERT (b_ != NULL);
-  const struct thread *a = list_entry (a_, struct thread, elem);
-  const struct thread *b = list_entry (b_, struct thread, elem);
-
-  return a->sleep_ticks < b->sleep_ticks;
-}
-//end added from answer

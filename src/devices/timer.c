@@ -7,10 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-/* ##> Our implementation */
-// #include "threads/fixed-point.h"
 #include <string.h>
-
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -99,9 +96,9 @@ timer_sleep (int64_t ticks)
      thread_yield ();
   */
   
-  /* ##> Our implementation
-   * Put current thread to sleep for a fixed ticks */
-  thread_sleep(ticks);
+  /*=================== alarm ===================*/
+  put_to_sleep(ticks);
+  /*=================== alarm END ===================*/
   /* <##*/
 }
 
