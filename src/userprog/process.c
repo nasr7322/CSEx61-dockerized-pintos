@@ -21,6 +21,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -41,16 +42,16 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 
-  printf("sleep parent\n");
+  // printf("sleep parent\n");
   sema_down(&thread_current()->parent_child_sync);
-  printf("parent wake\n");
+  // printf("parent wake\n");
 
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
 }
-
+ 
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -59,27 +60,30 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  printf("loading...\n");
+
+
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
-
+  else{
   // add thread to children list
   list_push_back(&thread_current()->parent->children, &thread_current()->child_elem);
   
   /* wake parent*/
   sema_up(&thread_current()->parent->parent_child_sync);
   sema_down(&thread_current()->parent_child_sync);
-  printf("child woke up\n");
+  // printf("child woke up\n");
+
+  }
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -90,6 +94,7 @@ start_process (void *file_name_)
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
+ 
 
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
@@ -108,20 +113,24 @@ process_wait (tid_t child_tid)
 
   struct thread *t = thread_current();
   struct list_elem *e;
-  struct thread *child = NULL;
-  // size of children list
-  int size = list_size(&t->children);
-  printf("size of children list is %d\n", size);
-  for (e = list_begin(&t->children); e != list_end(&t->children); e = list_next(e))
+  
+
+   struct thread *current = thread_current();
+  struct list *children = &current->children;
+  struct list_elem *iter = list_begin(children);
+  while (iter != list_end(children))
   {
-    struct thread *temp = list_entry(e, struct thread, child_elem);
-    printf("this id is %d but we look for %d\n", temp->tid, child_tid);
-    if (temp->tid == child_tid)
+    struct thread *entry = list_entry(iter, struct thread, child_elem);
+    iter = list_next(iter);
+    if (entry->tid == child_tid)
     {
-      sema_up(&temp->parent_child_sync);
-      printf("wait child...\n");
-      sema_down(&temp->wait_for_child);
-      break;
+      t->waiting_for= child_tid;
+      list_remove(&entry->child_elem);
+      sema_up(&entry->parent_child_sync);
+      // printf("wait child...\n");
+      sema_down(&thread_current()->wait_for_child);
+      return thread_current()->child_status;
+      return entry;
     }
   }
 
@@ -139,22 +148,32 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  /* Destroy the current process's page directory and switch back
-     to the kernel-only page directory. */
-  pd = cur->pagedir;
-  if (pd != NULL) 
-    {
-      /* Correct ordering here is crucial.  We must set
-         cur->pagedir to NULL before switching page directories,
-         so that a timer interrupt can't switch back to the
-         process page directory.  We must activate the base page
-         directory before destroying the process's page
-         directory, or our active page directory will be one
-         that's been freed (and cleared). */
-      cur->pagedir = NULL;
-      pagedir_activate (NULL);
-      pagedir_destroy (pd);
+
+    if(cur->parent != NULL&& cur->parent->waiting_for == cur->tid){
+        struct thread *parent = cur->parent;
+        parent->child_status = cur->exit_status;
+        parent->waiting_for=-1;
+        sema_up(&parent->wait_for_child);
+
     }
+
+    /* Destroy the current process's page directory and switch back
+       to the kernel-only page directory. */
+    pd = cur->pagedir;
+
+    if (pd != NULL){
+        /* Correct ordering here is crucial.  We must set
+           cur->pagedir to NULL before switching page directories,
+           so that a timer interrupt can't switch back to the
+           process page directory.  We must activate the base page
+           directory before destroying the process's page
+           directory, or our active page directory will be one
+           that's been freed (and cleared). */
+        cur->pagedir = NULL;
+        pagedir_activate(NULL);
+        pagedir_destroy(pd);
+    }
+
 }
 
 /* Sets up the CPU for running user code in the current
