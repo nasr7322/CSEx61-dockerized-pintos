@@ -211,7 +211,7 @@ thread_create (const char *name, int priority,
   /*======================wait=======================*/
   //making a child and adding it to the parent's children list
     struct child *c = malloc(sizeof(*c));
-    c->tid = tid;
+    c->child = t;
     c->isWaitedOn = false;
     //c->exitCode = some value  //init with proper value:)
     list_push_back(&running_thread()->children, &c->elem);

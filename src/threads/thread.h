@@ -97,14 +97,16 @@ struct thread
    /*=============wait=====================*/
    struct list children;
    struct semaphore childLock;
+   struct semaphore parentLock;
    int waitingThisChild;
    int exitStatus; //taken from syscall exit and sent to it's parent when exited
+   int childStatus;
    /*=============wait end=====================*/
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-
+F
    
 #endif
     /* Owned by userprog/process.c. */
@@ -120,7 +122,7 @@ struct thread
 
   /*=============wait=====================*/
   struct child{
-      tid_t tid;
+      struct thread *child;
       bool isWaitedOn;
       int exitCode;
       struct list_elem elem;

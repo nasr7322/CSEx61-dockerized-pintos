@@ -89,15 +89,15 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
-  struct child *realChild  = NULL;
+  struct thread *realChild  = NULL;
   struct list_elem *elem = NULL;
 
   for(struct list_elem *i = list_begin(&thread_current()->children);i != list_end(&thread_current()->children);i = list_next(i))
   {
     struct child *tempChild = list_entry(i, struct child, elem);
-    if(tempChild->tid == child_tid)
+    if(tempChild->child->tid == child_tid)
     {
-      realChild = tempChild;
+      realChild = tempChild->child;
       elem = i;
       break;
     }
@@ -107,24 +107,17 @@ process_wait (tid_t child_tid)
     return -1;
 
   // Mark current thread as waiting for this child
+  if (thread_current()->waitingThisChild != -2) return -1; //we can remove
   thread_current()->waitingThisChild = realChild->tid;
 
-  // //child block all other children
-  // for (struct list_elem *i = list_begin(&thread_current()->children); i != list_end(&thread_current()->children); i = list_next(i)) {
-  //   struct thread *t = list_entry(i, struct thread, elem);
-  //   if(t->tid != child_tid)
-  //     sema_down(&t->childLock);
-  // }
+  sema_up(&realChild->parentLock);
+  sema_down(&thread_current()->childLock);
 
-  // If the child is not waited on, wait using semaphore
-  if(!realChild->isWaitedOn)
-    {
-      realChild->isWaitedOn = true;
-      sema_down(&thread_current()->childLock);
-    }
+
+  thread_current()->waitingThisChild = -2;
 
   // Get the exit code of the child should be set when exit from child
-  int exCode = realChild->exitCode;
+  int exCode = realChild->exitStatus;
   list_remove(elem);
 
   printf("waited\n");
@@ -140,34 +133,13 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  // Close all files
-
-  // Close the executable file
-
-  // check parents and children
   if(cur-> parent != NULL){
     if(cur->parent->waitingThisChild == thread_current()->tid)
     {
-      for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
-        struct child *tempChild = list_entry(i, struct child, elem);
-        if (tempChild->tid == thread_current()->tid) {
-          tempChild->exitCode = thread_current()->exitStatus;
-          break;
-        }
-      }
-      cur->parent->waitingThisChild = -1;
       sema_up(&thread_current()->parent->childLock);
     }
-    //else, remove the current thread from the parent's children list
     else
     {
-      // for (struct list_elem *i = list_begin(&cur->parent->children); i != list_end(&cur->parent->children); i = list_next(i)) {
-      //   struct child *tempChild = list_entry(i, struct child, elem);
-      //   if (tempChild->tid == thread_current()->tid) {
-      //     list_remove(i);
-      //     break;
-      //   }
-      // }
       list_remove(&cur->elem);
     }
   }
@@ -175,8 +147,8 @@ process_exit (void)
   // waking up all children
   struct list_elem *e;
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
-    struct thread *t = list_entry(e, struct thread, elem);
-    sema_up(&t->childLock);
+    struct child *t = list_entry(e, struct thread, elem);
+    sema_up(&t->child->parentLock);
   }
 
   // close all open files in exit
